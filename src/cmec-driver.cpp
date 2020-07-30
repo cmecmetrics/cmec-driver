@@ -32,7 +32,25 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static const char * g_szVersion = "20200723";
+///	<summary>
+///		Current code version.
+///	</summary>
+static const char * g_szVersion = "20200731";
+
+///	<summary>
+///		Name of the CMEC library file.
+///	</summary>
+static const char * g_szCMECLibraryName = ".cmeclibrary";
+
+///	<summary>
+///		Name of the CMEC TOC file.
+///	</summary>
+static const char * g_szCMECTOCName = "contents.json";
+
+///	<summary>
+///		Name of the CMEC settings file.
+///	</summary>
+static const char * g_szCMECSettingsName = "settings.json";
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -112,6 +130,9 @@ std::string ParseCommandLine(
 
 ///////////////////////////////////////////////////////////////////////////////
 
+///	<summary>
+///		A class representing the CMEC module library.
+///	</summary>
 class CMECLibrary {
 
 public:
@@ -153,7 +174,7 @@ public:
 			if (!pathNamelist.exists()) {
 				_EXCEPTIONT("Environment variable $HOME points to an invalid home directory path\n");
 			}
-			m_path = pathNamelist/filesystem::path(".cmeclibrary");
+			m_path = pathNamelist/filesystem::path(g_szCMECLibraryName);
 			return;
 		}
 
@@ -169,7 +190,7 @@ public:
 		if (!pathNamelist.exists()) {
 			_EXCEPTIONT("pwd points to an invalid home directory path");
 		}
-		m_path = pathNamelist/filesystem::path(".cmeclibrary");
+		m_path = pathNamelist/filesystem::path(g_szCMECLibraryName);
 	}
 
 	///	<summary>
@@ -228,7 +249,7 @@ public:
 				_EXCEPTIONT("Malformed CMEC library file missing key \"cmec-driver\"");
 			}
 			if (!itd->is_object()) {
-				_EXCEPTIONT("Malformed CMEC library file \"cmec-driver\" is not of type object");
+				_EXCEPTIONT("Malformed CMEC library file: \"cmec-driver\" is not of type object");
 			}
 
 			auto itv = m_jlib.find("version");
@@ -236,7 +257,7 @@ public:
 				_EXCEPTIONT("Malformed CMEC library file missing key \"version\"");
 			}
 			if (!itv->is_string()) {
-				_EXCEPTIONT("Malformed CMEC library file \"version\" is not of type string");
+				_EXCEPTIONT("Malformed CMEC library file: \"version\" is not of type string");
 			}
 
 			auto itm = m_jlib.find("modules");
@@ -244,7 +265,7 @@ public:
 				_EXCEPTIONT("Malformed CMEC library file missing key \"modules\"");
 			}
 			if (!itm->is_object()) {
-				_EXCEPTIONT("Malformed CMEC library file \"modules\" is not of type object");
+				_EXCEPTIONT("Malformed CMEC library file: \"modules\" is not of type object");
 			}
 
 			std::string strLibVersion = *itv;
@@ -260,7 +281,19 @@ public:
 				if (!itmod->is_string()) {
 					_EXCEPTIONT("Malformed CMEC library file: an entry of the \"modules\" array is not of type string");
 				}
-				Insert(itmod.key(), filesystem::path(itmod.value()));
+
+				std::string strModuleName(itmod.key());
+				filesystem::path path(itmod.value());
+
+				// Verify module doesn't exist already in map
+				if (m_mapModulePaths.find(strModuleName) != m_mapModulePaths.end()) {
+					_EXCEPTION1("Malformed CMEC library file: Repeated module name \"%s\"",
+						strModuleName.c_str());
+				}
+
+				m_mapModulePaths.insert(
+					std::pair<std::string, filesystem::path>(
+						strModuleName, path));
 			}
 		}
 	}
@@ -293,7 +326,7 @@ public:
 	) {
 		// Verify module doesn't exist already
 		if (m_mapModulePaths.find(strModuleName) != m_mapModulePaths.end()) {
-			Announce("\nERROR: Module already exists in library; "
+			Announce("\033[1mERROR:\033[0m Module already exists in library; "
 				"if path has changed first run \"unregister %s\"",
 				strModuleName.c_str());
 
@@ -318,12 +351,12 @@ public:
 	) {
 		auto it = m_mapModulePaths.find(strModuleName);
 		if (it == m_mapModulePaths.end()) {
-			Announce("\nERROR: Module \"%s\" not found in library",
+			Announce("\033[1mERROR:\033[0m Module \"%s\" not found in library",
 				strModuleName.c_str());
 			return false;
 		}
 
-		nlohmann::json jmodules = m_jlib["modules"];
+		nlohmann::json & jmodules = m_jlib["modules"];
 		auto itmod = jmodules.find(strModuleName);
 		if (itmod == jmodules.end()) {
 			_EXCEPTIONT("Logic error:  Module appears in map but not in json representation");
@@ -377,42 +410,391 @@ protected:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void validate_cmec_json(
-	nlohmann::json & jcmec
-) {
-	auto itm = jcmec.find("module");
-	if (itm == jcmec.end()) {
-		_EXCEPTIONT("Malformed CMEC library file missing key \"module\"");
-	}
-	if (!itm->is_object()) {
-		_EXCEPTIONT("Malformed CMEC library file \"module\" is not of type object");
+///	<summary>
+///		A class representing the settings.json file.
+///	</summary>
+class CMECModuleSettings {
+
+public:
+	///	<summary>
+	///		Check for the existence of a contents file.
+	///	</summary>
+	static bool ExistsInModulePath(
+		const filesystem::path & pathModule
+	) {
+		filesystem::path pathSettings = pathModule / filesystem::path(g_szCMECSettingsName);
+		return pathSettings.exists();
 	}
 
-	nlohmann::json jmodule = *itm;
-	auto itmn = jmodule.find("name");
-	if (itmn == jmodule.end()) {
-		_EXCEPTIONT("Malformed CMEC library file missing key \"module::name\"");
-	}
-	if (!itmn->is_string()) {
-		_EXCEPTIONT("Malformed CMEC library file \"module::name\" is not of type string");
-	}
-
-	auto itml = jmodule.find("long_name");
-	if (itml == jmodule.end()) {
-		_EXCEPTIONT("Malformed CMEC library file missing key \"module::long_name\"");
-	}
-	if (!itml->is_string()) {
-		_EXCEPTIONT("Malformed CMEC library file \"module::long_name\" is not of type string");
+public:
+	///	<summary>
+	///		Clear the CMEC module contents.
+	///	</summary>
+	void Clear() {
+		m_path = filesystem::path();
+		m_jsettings.clear();
 	}
 
-	auto itc = jcmec.find("contents");
-	if (itc == jcmec.end()) {
-		_EXCEPTIONT("Malformed CMEC library file missing key \"contents\"");
+	///	<summary>
+	///		Read the CMEC module contents file.
+	///	</summary>
+	bool Read(
+		const filesystem::path & pathSettings
+	) {
+		// Clear the module contents
+		Clear();
+
+		// Store the settings.json file path
+		m_path = pathSettings;
+
+		// Get the path
+		filesystem::path pathCMECjson = pathSettings;
+		std::ifstream ifCMECjson(pathCMECjson.str());
+		if (!ifCMECjson.is_open()) {
+			_EXCEPTION1("Unable to open \"%s\"", pathSettings.str().c_str());
+		}
+
+		// Parse the CMEC settings json
+		try {
+			m_jsettings = nlohmann::json::parse(ifCMECjson);
+		} catch (nlohmann::json::parse_error& e) {
+			_EXCEPTION3("Malformed CMEC settings file "
+				"%s (%i) at byte position %i",
+				e.what(), e.id, e.byte);
+		}
+
+		// Validate the CMEC settings json
+
+		// settings key
+		auto its = m_jsettings.find("settings");
+		if (its == m_jsettings.end()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": missing key \"settings\"",
+				pathSettings.str().c_str());
+			return false;
+		}
+		if (!its->is_object()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": \"settings\" is not of type object",
+				pathSettings.str().c_str());
+			return false;
+		}
+
+		auto itsn = its->find("name");
+		if (itsn == its->end()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": missing key \"settings::name\"",
+				pathSettings.str().c_str());
+			return false;
+		}
+		if (!itsn->is_string()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": \"settings::name\" is not of type string",
+				pathSettings.str().c_str());
+			return false;
+		}
+
+		auto itsln = its->find("long_name");
+		if (itsln == its->end()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": missing key \"settings::long_name\"",
+				pathSettings.str().c_str());
+			return false;
+		}
+		if (!itsln->is_string()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": \"settings::long_name\" is not of type string",
+				pathSettings.str().c_str());
+			return false;
+		}
+
+		auto itsd = its->find("driver");
+		if (itsd == its->end()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": missing key \"settings::driver\"",
+				pathSettings.str().c_str());
+			return false;
+		}
+		if (!itsd->is_string()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": \"settings::driver\" is not of type string",
+				pathSettings.str().c_str());
+			return false;
+		}
+
+		// varlist key
+		auto itv = m_jsettings.find("varlist");
+		if (itv == m_jsettings.end()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": missing key \"varlist\"",
+				pathSettings.str().c_str());
+			return false;
+		}
+		if (!itv->is_object()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": \"varlist\" is not of type object",
+				pathSettings.str().c_str());
+			return false;
+		}
+
+		// obslist key
+		auto ito = m_jsettings.find("obslist");
+		if (ito == m_jsettings.end()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": missing key \"obslist\"",
+				pathSettings.str().c_str());
+			return false;
+		}
+		if (!ito->is_object()) {
+			Announce("ERROR: Malformed CMEC settings file \"%s\": \"obslist\" is not of type object",
+				pathSettings.str().c_str());
+			return false;
+		}
+
+		return true;
 	}
-	if (!itc->is_object()) {
-		_EXCEPTIONT("Malformed CMEC library file \"contents\" is not of type object");
+
+public:
+	///	<summary>
+	///		Name of the module.
+	///	<summary>
+	std::string GetName() const {
+		return m_jsettings["settings"]["name"];
 	}
-}
+
+	///	<summary>
+	///		Long name of the module.
+	///	</summary>
+	std::string GetLongName() const {
+		return m_jsettings["settings"]["long_name"];
+	}
+
+protected:
+	///	<summary>
+	///		Path to the CMEC module.
+	///	</summary>
+	filesystem::path m_path;
+
+	///	<summary>
+	///		JSON file representation of the CMEC TOC file.
+	///	</summary>
+	nlohmann::json m_jsettings;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+///	<summary>
+///		A class representing the contents of a specific CMEC module.
+///	</summary>
+class CMECModuleTOC {
+
+public:
+	///	<summary>
+	///		A map from module configurations to paths.
+	///	</summary>
+	typedef std::map<std::string, filesystem::path> ModuleConfigMap;
+
+	///	<summary>
+	///		A const_iterator into the map.
+	///	</summary>
+	typedef ModuleConfigMap::const_iterator const_iterator;
+
+public:
+	///	<summary>
+	///		Check for the existence of a contents file.
+	///	</summary>
+	static bool ExistsInModulePath(
+		const filesystem::path & pathModule
+	) {
+		filesystem::path pathContents = pathModule / filesystem::path(g_szCMECTOCName);
+		return pathContents.exists();
+	}
+
+public:
+	///	<summary>
+	///		Clear the CMEC module contents.
+	///	</summary>
+	void Clear() {
+		m_path = filesystem::path();
+		m_mapConfigs.clear();
+		m_jcmec.clear();
+	}
+
+	///	<summary>
+	///		Read the CMEC module contents file.
+	///	</summary>
+	bool Read(
+		const filesystem::path & pathModule
+	) {
+		// Clear the module contents
+		Clear();
+
+		// Get the path
+		m_path = pathModule / filesystem::path(g_szCMECTOCName);
+		std::ifstream ifCMECjson(m_path.str());
+		if (!ifCMECjson.is_open()) {
+			_EXCEPTION1("Unable to open \"%s\"", m_path.str().c_str());
+		}
+
+		// Parse the CMEC json
+		try {
+			m_jcmec = nlohmann::json::parse(ifCMECjson);
+		} catch (nlohmann::json::parse_error& e) {
+			_EXCEPTION3("Malformed CMEC config file "
+				"%s (%i) at byte position %i",
+				e.what(), e.id, e.byte);
+		}
+
+		// Validate the file
+		auto itm = m_jcmec.find("module");
+		if (itm == m_jcmec.end()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": missing key \"module\"",
+				m_path.str().c_str());
+			return false;
+		}
+		if (!itm->is_object()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": \"module\" is not of type object",
+				m_path.str().c_str());
+			return false;
+		}
+	
+		nlohmann::json jmodule = *itm;
+		auto itmn = jmodule.find("name");
+		if (itmn == jmodule.end()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": missing key \"module::name\"",
+				m_path.str().c_str());
+			return false;
+		}
+		if (!itmn->is_string()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": \"module::name\" is not of type string",
+				m_path.str().c_str());
+			return false;
+		}
+
+		std::string strName = jmodule["name"];
+		for (int i = 0; i < strName.length(); i++) {
+			if (!isalnum(strName[i]) && (strName[i] != '_')) {
+				Announce("ERROR: Malformed CMEC contents file \"%s\": \"module::name\" entry \"%s\" must only contain alphanumeric characters",
+					m_path.str().c_str(),
+					strName.c_str());
+				return false;
+			}
+		}
+
+		auto itml = jmodule.find("long_name");
+		if (itml == jmodule.end()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": missing key \"module::long_name\"",
+				m_path.str().c_str());
+			return false;
+		}
+		if (!itml->is_string()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": \"module::long_name\" is not of type string",
+				m_path.str().c_str());
+			return false;
+
+		}
+
+		auto itc = m_jcmec.find("contents");
+		if (itc == m_jcmec.end()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": missing key \"contents\"",
+				m_path.str().c_str());
+			return false;
+		}
+		if (!itc->is_array()) {
+			Announce("ERROR: Malformed CMEC contents file \"%s\": \"contents\" is not of type array",
+				m_path.str().c_str());
+			return false;
+		}
+
+		// Load configurations
+		nlohmann::json jcontents = *itc;
+		for (auto itconfig = jcontents.begin(); itconfig != jcontents.end(); itconfig++) {
+			if (!itconfig->is_string()) {
+				_EXCEPTIONT("Malformed CMEC library file: an entry of the \"contents\" array is not of type string");
+			}
+
+			filesystem::path pathSettings = pathModule / std::string(*itconfig);
+
+			CMECModuleSettings cmecsettings;
+			bool fSuccess = cmecsettings.Read(pathSettings);
+			if (fSuccess) {
+				m_mapConfigs.insert(
+					std::pair<std::string, filesystem::path>(
+						cmecsettings.GetName(), pathSettings));
+			}
+		}
+
+		return true;
+	}
+
+	///	<summary>
+	///		Insert a new path into the TOC.
+	///	</summary>
+	bool Insert(
+		const std::string & strConfigName,
+		const filesystem::path & path
+	) {
+		// Verify config doesn't exist already
+		if (m_mapConfigs.find(strConfigName) != m_mapConfigs.end()) {
+			Announce("\033[1mERROR:\033[0m Repeated configuration name \"%s\"",
+				strConfigName.c_str());
+
+			return false;
+		}
+
+		// Insert module
+		m_mapConfigs.insert(
+			std::pair<std::string, filesystem::path>(
+				strConfigName, path));
+
+		m_jcmec["contents"][strConfigName] = path.str();
+
+		return true;
+	}
+
+public:
+	///	<summary>
+	///		Name of the module.
+	///	<summary>
+	std::string GetName() const {
+		return m_jcmec["module"]["name"];
+	}
+
+	///	<summary>
+	///		Long name of the module.
+	///	</summary>
+	std::string GetLongName() const {
+		return m_jcmec["module"]["long_name"];
+	}
+
+public:
+	///	<summary>
+	///		Number of modules in this library.
+	///	</summary>
+	size_t size() const {
+		return m_mapConfigs.size();
+	}
+
+	///	<summary>
+	///		Constant iterator into module map.
+	///	</summary>
+	ModuleConfigMap::const_iterator begin() const {
+		return m_mapConfigs.begin();
+	}
+
+	///	<summary>
+	///		Constant iterator into module map.
+	///	</summary>
+	ModuleConfigMap::const_iterator end() const {
+		return m_mapConfigs.end();
+	}
+
+protected:
+	///	<summary>
+	///		Path to the CMEC module.
+	///	</summary>
+	filesystem::path m_path;
+
+	///	<summary>
+	///		Map of configuration names to settings.json files.
+	///	</summary>
+	ModuleConfigMap m_mapConfigs;
+
+	///	<summary>
+	///		JSON file representation of the CMEC TOC file.
+	///	</summary>
+	nlohmann::json m_jcmec;
+
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -425,38 +807,48 @@ int cmec_register(
 	AnnounceStartBlock("Registering \"%s\"", strDirectory.c_str());
 
 	// Check path for cmec.json
-	Announce("Validating cmec.json");
-
 	filesystem::path pathModule(strDirectory);
-	filesystem::path pathCMECjson = pathModule / filesystem::path("cmec.json");
-	std::ifstream ifCMECjson(pathCMECjson.str());
-	if (!ifCMECjson.is_open()) {
-		_EXCEPTION1("Unable to open \"%s\"", pathCMECjson.str().c_str());
-	}
 
-	// Parse the CMEC json
-	nlohmann::json jcmec;
-	try {
-		jcmec = nlohmann::json::parse(ifCMECjson);
-	} catch (nlohmann::json::parse_error& e) {
-		_EXCEPTION3("Malformed CMEC library file "
-			"%s (%i) at byte position %i",
-			e.what(), e.id, e.byte);
-	}
+	// Module name
+	std::string strName;
 
-	// Validate file
-	validate_cmec_json(jcmec);
+	// Check if module contains a settings file
+	if (CMECModuleSettings::ExistsInModulePath(pathModule)) {
+		Announce("Validating %s", g_szCMECSettingsName);
 
-	// Output metadata
-	std::string strName = jcmec["module"]["name"];
-	for (int i = 0; i < strName.length(); i++) {
-		if (!isalnum(strName[i]) && (strName[i] != '_')) {
-			_EXCEPTION1("Invalid \"cmec.json\": Name \"%s\" must only contain alphanumeric characters",
-				strName.c_str());
+		CMECModuleSettings cmecsettings;
+		cmecsettings.Read(pathModule);
+
+		strName = cmecsettings.GetName();
+
+	// Check if module contains a contents file
+	} else if (CMECModuleTOC::ExistsInModulePath(pathModule)) {
+		Announce("Validating %s", g_szCMECTOCName);
+
+		CMECModuleTOC cmectoc;
+		cmectoc.Read(pathModule);
+
+		// Output metadata
+		strName = cmectoc.GetName();
+		std::string strLongName = cmectoc.GetLongName();
+		Announce("Module \033[1m%s\033[0m (\033[1m%s\033[0m)", strName.c_str(), strLongName.c_str());
+
+		// Check number of configurations
+		Announce("Contains \033[1m%lu configurations\033[0m:", cmectoc.size());
+		AnnounceBanner();
+		for (auto itconfig = cmectoc.begin(); itconfig != cmectoc.end(); itconfig++) {
+			AnnounceNoIndent("  %s::%s", strName.c_str(), itconfig->first.c_str());
 		}
+		AnnounceBanner();
+
+	// Both files missing; throw error
+	} else {
+		Announce("ERROR: Module path must contain \"%s\" or \"%s\"",
+			g_szCMECTOCName,
+			g_szCMECSettingsName);
+
+		return (-1);
 	}
-	std::string strLongName = jcmec["module"]["long_name"];
-	Announce("Module \"%s\" (%s)", strName.c_str(), strLongName.c_str());
 
 	// Load the CMEC library
 	Announce("Reading CMEC library");
@@ -464,7 +856,7 @@ int cmec_register(
 	lib.Read();
 
 	// Add this path to the library
-	Announce("Add new module to library");
+	Announce("Adding new module to library");
 	bool fSuccess = lib.Insert(strName, pathModule);
 	if (!fSuccess) {
 		return (-1);
@@ -505,6 +897,9 @@ int cmec_unregister(
 	Announce("Writing CMEC library");
 	lib.Write();
 
+	// Done
+	AnnounceEndBlock("Done");
+
 	return 0;
 }
 
@@ -523,15 +918,29 @@ int cmec_list(
 
 	// Check for size zero library
 	if (lib.size() == 0) {
-		Announce("CMEC library contains no entries");
+		Announce("CMEC library contains no modules");
 		return 0;
 	}
 
 	// List modules
-	AnnounceStartBlock("CMEC library contains the following modules:");
+	Announce("CMEC library contains %lu modules:", lib.size());
+	AnnounceBanner();
 	for (auto it = lib.begin(); it != lib.end(); it++) {
-		Announce("%s", it->first.c_str());
+		if (CMECModuleTOC::ExistsInModulePath(it->second)) {
+			CMECModuleTOC cmectoc;
+			cmectoc.Read(it->second);
+			Announce("  %s [%lu configurations]", it->first.c_str(), cmectoc.size());
+			if (fListAll) {
+				for (auto itconfig = cmectoc.begin(); itconfig != cmectoc.end(); itconfig++) {
+					Announce("  ..%s::%s", it->first.c_str(), itconfig->first.c_str());
+				}
+			}
+
+		} else {
+			Announce("  %s", it->first.c_str());
+		}
 	}
+	AnnounceBanner();
 
 	return 0;
 }
@@ -582,8 +991,7 @@ int main(int argc, char **argv) {
 	// Unregister
 	if (strCommand == "unregister") {
 		if (argc == 3) {
-			std::string strModule = argv[1];
-			return cmec_unregister(strModule);
+			return cmec_unregister(vecArg[0]);
 
 		} else {
 			printf("Usage: %s unregister <module name>\n", strExecutable.c_str());
@@ -595,6 +1003,9 @@ int main(int argc, char **argv) {
 	if (strCommand == "list") {
 		if (argc == 2) {
 			return cmec_list(false);
+
+		} else if ((argc == 3) && (vecArg[0] == "all")) {
+			return cmec_list(true);
 
 		} else {
 			printf("Usage: %s list\n", strExecutable.c_str());
@@ -611,7 +1022,7 @@ int main(int argc, char **argv) {
 			return cmec_run();
 
 		} else {
-			printf("Usage: %s run [-o <obs dir>] <model dir> <output dir> <modules>\n", strExecutable.c_str());
+			printf("Usage: %s run <obs dir> <model dir> <output dir> <modules>\n", strExecutable.c_str());
 			return 1;
 		}
 	}

@@ -3,20 +3,6 @@
 ///	\file    Announce.cpp
 ///	\author  Paul Ullrich
 ///	\version July 26, 2010
-///
-///	<remarks>
-///		Copyright 2000-2010 Paul Ullrich
-///
-///		This file is distributed as part of the Tempest source code package.
-///		Permission is granted to use, copy, modify and distribute this
-///		source code and its documentation under the terms of the GNU General
-///		Public License.  This software is provided "as is" without express
-///		or implied warranty.
-///	</remarks>
-
-#ifdef TEMPEST_MPIOMP
-#include <mpi.h>
-#endif
 
 #include "Announce.h"
 
@@ -113,19 +99,6 @@ void AnnounceStartBlock(
 		return;
 	}
 
-#ifdef TEMPEST_MPIOMP
-	// Only output on rank zero
-	if (g_fOnlyOutputOnRankZero) {
-		int nRank;
-
-		MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
-
-		if (nRank > 0) {
-			return;
-		}
-	}
-#endif
-
 	// Check the block flag
 	if (s_fBlockFlag) {
 		fprintf(g_fpAnnounceOutput, "\n");
@@ -174,19 +147,6 @@ void AnnounceEndBlock(
 		return;
 	}
 
-#ifdef TEMPEST_MPIOMP
-	// Only output on rank zero
-	if (g_fOnlyOutputOnRankZero) {
-		int nRank;
-
-		MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
-
-		if (nRank > 0) {
-			return;
-		}
-	}
-#endif
-
 	// Check block flag
 	if (szText != NULL) {
 
@@ -232,19 +192,6 @@ void AnnounceEndBlock(
 
 void Announce(const char * szText, ...) {
 
-#ifdef TEMPEST_MPIOMP
-	// Only output on rank zero
-	if (g_fOnlyOutputOnRankZero) {
-		int nRank;
-
-		MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
-
-		if (nRank > 0) {
-			return;
-		}
-	}
-#endif
-
 	// Turn off the block flag
 	if (s_fBlockFlag) {
 		fprintf(g_fpAnnounceOutput, "\n");
@@ -283,24 +230,47 @@ void Announce(const char * szText, ...) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void AnnounceNoIndent(const char * szText, ...) {
+
+	// Turn off the block flag
+	if (s_fBlockFlag) {
+		fprintf(g_fpAnnounceOutput, "\n");
+		s_fBlockFlag = false;
+	}
+
+	// If no text, return
+	if (szText == NULL) {
+		return;
+	}
+
+	// Output buffer
+	char szBuffer[AnnouncementBufferSize];
+
+	va_list arguments;
+
+	// Initialize the argument list
+	va_start(arguments, szText);
+
+	// Write to string
+	vsprintf(szBuffer, szText, arguments);
+
+	// Cleans up the argument list
+	va_end(arguments);
+
+	// Output with proper indentation
+	fprintf(g_fpAnnounceOutput, "%s", szBuffer);
+	fprintf(g_fpAnnounceOutput, "\n");
+
+	fflush(g_fpAnnounceOutput);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 void Announce(
 	int iVerbosity,
 	const char * szText,
 	...
 ) {
-
-#ifdef TEMPEST_MPIOMP
-	// Only output on rank zero
-	if (g_fOnlyOutputOnRankZero) {
-		int nRank;
-
-		MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
-
-		if (nRank > 0) {
-			return;
-		}
-	}
-#endif
 
 	// Check verbosity
 	if (iVerbosity > g_iVerbosityLevel) {
@@ -345,20 +315,52 @@ void Announce(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void AnnounceBanner(const char * szText) {
+void AnnounceNoIndent(
+	int iVerbosity,
+	const char * szText,
+	...
+) {
 
-#ifdef TEMPEST_MPIOMP
-	// Only output on rank zero
-	if (g_fOnlyOutputOnRankZero) {
-		int nRank;
-
-		MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
-
-		if (nRank > 0) {
-			return;
-		}
+	// Check verbosity
+	if (iVerbosity > g_iVerbosityLevel) {
+		return;
 	}
-#endif
+
+	// Turn off the block flag
+	if (s_fBlockFlag) {
+		fprintf(g_fpAnnounceOutput, "\n");
+		s_fBlockFlag = false;
+	}
+
+	// If no text, return
+	if (szText == NULL) {
+		return;
+	}
+
+	// Output buffer
+	char szBuffer[AnnouncementBufferSize];
+
+	va_list arguments;
+
+	// Initialize the argument list
+	va_start(arguments, szText);
+
+	// Write to string
+	vsprintf(szBuffer, szText, arguments);
+
+	// Cleans up the argument list
+	va_end(arguments);
+
+	// Output with proper indentation
+	fprintf(g_fpAnnounceOutput, "%s", szBuffer);
+	fprintf(g_fpAnnounceOutput, "\n");
+
+	fflush(g_fpAnnounceOutput);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void AnnounceBanner(const char * szText) {
 
 	// Turn off the block flag
 	if (s_fBlockFlag) {

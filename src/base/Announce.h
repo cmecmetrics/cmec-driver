@@ -84,9 +84,19 @@ void AnnounceEndBlock(int iVerbosity, const char * szText);
 void Announce(const char * szText, ...);
 
 ///	<summary>
+///		Make an announcement without indentation
+///	</summary>
+void AnnounceNoIndent(const char * szText, ...);
+
+///	<summary>
 ///		Make an announcement.
 ///	</summary>
 void Announce(int iVerbosity, const char * szText, ...);
+
+///	<summary>
+///		Make an announcement without indentation.
+///	</summary>
+void AnnounceNoIndent(int iVerbosity, const char * szText, ...);
 
 ///	<summary>
 ///		Create a banner / separator containing the specified text.
