@@ -22,6 +22,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <cctype>
 
 #include "contrib/json.hpp"
 #include "filesystem_path.h"
@@ -115,6 +116,17 @@ class CMECLibrary {
 
 public:
 	///	<summary>
+	///		A map from module names to corresponding paths.
+	///	</summary>
+	typedef std::map<std::string, filesystem::path> ModuleNamePathMap;
+
+	///	<summary>
+	///		A const_iterator into the map.
+	///	</summary>
+	typedef ModuleNamePathMap::const_iterator const_iterator;
+
+public:
+	///	<summary>
 	///		Constructor.
 	///	</summary>
 	CMECLibrary() {
@@ -125,7 +137,7 @@ public:
 	///	</summary>
 	void Clear() {
 		m_path = filesystem::path();
-		m_vecModulePaths.clear();
+		m_mapModulePaths.clear();
 		m_jlib.clear();
 	}
 
@@ -188,7 +200,7 @@ public:
 			nlohmann::json jlib;
 			jlib["version"] = g_szVersion;
 			jlib["cmec-driver"] = nlohmann::json::value_t::object;
-			jlib["modules"] = nlohmann::json::value_t::array;
+			jlib["modules"] = nlohmann::json::value_t::object;
 			oflib << jlib;
 
 			oflib.close();
@@ -231,8 +243,8 @@ public:
 			if (itm == m_jlib.end()) {
 				_EXCEPTIONT("Malformed CMEC library file missing key \"modules\"");
 			}
-			if (!itm->is_array()) {
-				_EXCEPTIONT("Malformed CMEC library file \"modules\" is not of type array");
+			if (!itm->is_object()) {
+				_EXCEPTIONT("Malformed CMEC library file \"modules\" is not of type object");
 			}
 
 			std::string strLibVersion = *itv;
@@ -248,7 +260,7 @@ public:
 				if (!itmod->is_string()) {
 					_EXCEPTIONT("Malformed CMEC library file: an entry of the \"modules\" array is not of type string");
 				}
-				m_vecModulePaths.push_back(filesystem::path(*itmod));
+				Insert(itmod.key(), filesystem::path(itmod.value()));
 			}
 		}
 	}
@@ -275,18 +287,75 @@ public:
 	///	<summary>
 	///		Insert a new path into the system.
 	///	</summary>
-	void Insert(
+	bool Insert(
+		const std::string & strModuleName,
 		const filesystem::path & path
 	) {
 		// Verify module doesn't exist already
-		if (std::find(m_vecModulePaths.begin(), m_vecModulePaths.end(), path) != m_vecModulePaths.end()) {
-			_EXCEPTION1("Module already exists in library; "
-				"if path has changed first run \"unregister %s\"", path.str().c_str());
+		if (m_mapModulePaths.find(strModuleName) != m_mapModulePaths.end()) {
+			Announce("\nERROR: Module already exists in library; "
+				"if path has changed first run \"unregister %s\"",
+				strModuleName.c_str());
+
+			return false;
 		}
 
 		// Insert module
-		m_vecModulePaths.push_back(path);
-		m_jlib["modules"].push_back(path.str());
+		m_mapModulePaths.insert(
+			std::pair<std::string, filesystem::path>(
+				strModuleName, path));
+
+		m_jlib["modules"][strModuleName] = path.str();
+
+		return true;
+	}
+
+	///	<summary>
+	///		Remove a module from the library.
+	///	</summary>
+	bool Remove(
+		const std::string & strModuleName
+	) {
+		auto it = m_mapModulePaths.find(strModuleName);
+		if (it == m_mapModulePaths.end()) {
+			Announce("\nERROR: Module \"%s\" not found in library",
+				strModuleName.c_str());
+			return false;
+		}
+
+		nlohmann::json jmodules = m_jlib["modules"];
+		auto itmod = jmodules.find(strModuleName);
+		if (itmod == jmodules.end()) {
+			_EXCEPTIONT("Logic error:  Module appears in map but not in json representation");
+		}
+
+		// Remove from map and json
+		m_mapModulePaths.erase(it);
+		jmodules.erase(itmod);
+
+		return true;
+	}
+
+public:
+	///	<summary>
+	///		Number of modules in this library.
+	///	</summary>
+	size_t size() const {
+		return m_mapModulePaths.size();
+	}
+
+	///	<summary>
+	///		Constant iterator into module map.
+	///	</summary>
+	ModuleNamePathMap::const_iterator begin() const {
+		return m_mapModulePaths.begin();
+	}
+
+	///	<summary>
+	///		Constant iterator into module map.
+	///	</summary>
+	ModuleNamePathMap::const_iterator end() const {
+		return m_mapModulePaths.end();
 	}
 
 protected:
@@ -296,9 +365,9 @@ protected:
 	filesystem::path m_path;
 
 	///	<summary>
-	///		List of modules.
+	///		Map of module names to module paths.
 	///	</summary>
-	std::vector<filesystem::path> m_vecModulePaths;
+	ModuleNamePathMap m_mapModulePaths;
 
 	///	<summary>
 	///		JSON file representation of the CMEC library.
@@ -380,6 +449,12 @@ int cmec_register(
 
 	// Output metadata
 	std::string strName = jcmec["module"]["name"];
+	for (int i = 0; i < strName.length(); i++) {
+		if (!isalnum(strName[i]) && (strName[i] != '_')) {
+			_EXCEPTION1("Invalid \"cmec.json\": Name \"%s\" must only contain alphanumeric characters",
+				strName.c_str());
+		}
+	}
 	std::string strLongName = jcmec["module"]["long_name"];
 	Announce("Module \"%s\" (%s)", strName.c_str(), strLongName.c_str());
 
@@ -390,7 +465,10 @@ int cmec_register(
 
 	// Add this path to the library
 	Announce("Add new module to library");
-	lib.Insert(pathModule);
+	bool fSuccess = lib.Insert(strName, pathModule);
+	if (!fSuccess) {
+		return (-1);
+	}
 
 	// Write CMEC library
 	Announce("Writing CMEC library");
@@ -409,8 +487,23 @@ int cmec_register(
 int cmec_unregister(
 	const std::string & strModuleName
 ) {
+	AnnounceStartBlock("Unregistering \"%s\"", strModuleName.c_str());
+
+	// Load the CMEC library
+	Announce("Reading CMEC library");
 	CMECLibrary lib;
 	lib.Read();
+
+	// Remove module
+	Announce("Removing module");
+	bool fSuccess = lib.Remove(strModuleName);
+	if (!fSuccess) {
+		return (-1);
+	}
+
+	// Write CMEC library
+	Announce("Writing CMEC library");
+	lib.Write();
 
 	return 0;
 }
@@ -423,6 +516,22 @@ int cmec_unregister(
 int cmec_list(
 	bool fListAll
 ) {
+	// Load the CMEC library
+	Announce("Reading CMEC library");
+	CMECLibrary lib;
+	lib.Read();
+
+	// Check for size zero library
+	if (lib.size() == 0) {
+		Announce("CMEC library contains no entries");
+		return 0;
+	}
+
+	// List modules
+	AnnounceStartBlock("CMEC library contains the following modules:");
+	for (auto it = lib.begin(); it != lib.end(); it++) {
+		Announce("%s", it->first.c_str());
+	}
 
 	return 0;
 }
