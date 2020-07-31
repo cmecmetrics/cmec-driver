@@ -1216,9 +1216,11 @@ int cmec_run(
 	// Executing command scripts
 	AnnounceStartBlock("\nExecuting driver scripts");
 	for (int d = 0; d < vecDriverScripts.size(); d++) {
+		AnnounceBanner();
 		Announce("%s", vecWorkingDirs[d].str().c_str());
 		system(vecEnvScripts[d].str().c_str());
 	}
+	AnnounceBanner();
 	AnnounceEndBlock(NULL);
 
 	return 0;
