@@ -854,7 +854,7 @@ int cmec_register(
 		Announce("Contains \033[1m%lu configurations\033[0m:", cmectoc.size());
 		AnnounceBanner();
 		for (auto itconfig = cmectoc.begin(); itconfig != cmectoc.end(); itconfig++) {
-			AnnounceNoIndent("  %s::%s", strName.c_str(), itconfig->first.c_str());
+			AnnounceNoIndent("  %s/%s", strName.c_str(), itconfig->first.c_str());
 		}
 		AnnounceBanner();
 
@@ -949,7 +949,7 @@ int cmec_list(
 			Announce("  %s [%lu configurations]", it->first.c_str(), cmectoc.size());
 			if (fListAll) {
 				for (auto itconfig = cmectoc.begin(); itconfig != cmectoc.end(); itconfig++) {
-					Announce("  ..%s/%s", it->first.c_str(), itconfig->first.c_str());
+					Announce("    %s/%s", it->first.c_str(), itconfig->first.c_str());
 				}
 			}
 
@@ -1217,7 +1217,7 @@ int cmec_run(
 	AnnounceStartBlock("\nExecuting driver scripts");
 	for (int d = 0; d < vecDriverScripts.size(); d++) {
 		AnnounceBanner();
-		Announce("%s", vecWorkingDirs[d].str().c_str());
+		Announce("\033[1m%s\033[0m", vecWorkingDirs[d].str().c_str());
 		system(vecEnvScripts[d].str().c_str());
 	}
 	AnnounceBanner();
