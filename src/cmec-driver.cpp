@@ -29,6 +29,7 @@
 
 #include "Announce.h"
 #include "Exception.h"
+#include "Terminal.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -391,6 +392,15 @@ public:
 		return m_mapModulePaths.end();
 	}
 
+	///	<summary>
+	///		Find the specified module name.
+	///	</summary>
+	ModuleNamePathMap::const_iterator find(
+		const std::string & strModule
+	) const {
+		return m_mapModulePaths.find(strModule);
+	}
+
 protected:
 	///	<summary>
 	///		Path to the CMEC library.
@@ -438,7 +448,7 @@ public:
 	///	<summary>
 	///		Read the CMEC module contents file.
 	///	</summary>
-	bool Read(
+	bool ReadFromFile(
 		const filesystem::path & pathSettings
 	) {
 		// Clear the module contents
@@ -558,6 +568,13 @@ public:
 		return m_jsettings["settings"]["long_name"];
 	}
 
+	///	<summary>
+	///		Driver script.
+	///	</summary>
+	std::string GetDriverScript() const {
+		return m_jsettings["settings"]["driver"];
+	}
+
 protected:
 	///	<summary>
 	///		Path to the CMEC module.
@@ -612,7 +629,7 @@ public:
 	///	<summary>
 	///		Read the CMEC module contents file.
 	///	</summary>
-	bool Read(
+	bool ReadFromModulePath(
 		const filesystem::path & pathModule
 	) {
 		// Clear the module contents
@@ -662,7 +679,7 @@ public:
 
 		std::string strName = jmodule["name"];
 		for (int i = 0; i < strName.length(); i++) {
-			if (!isalnum(strName[i]) && (strName[i] != '_')) {
+			if (!isalnum(strName[i]) && (strName[i] != '_') && (strName[i] != '/')) {
 				Announce("ERROR: Malformed CMEC contents file \"%s\": \"module::name\" entry \"%s\" must only contain alphanumeric characters",
 					m_path.str().c_str(),
 					strName.c_str());
@@ -705,7 +722,7 @@ public:
 			filesystem::path pathSettings = pathModule / std::string(*itconfig);
 
 			CMECModuleSettings cmecsettings;
-			bool fSuccess = cmecsettings.Read(pathSettings);
+			bool fSuccess = cmecsettings.ReadFromFile(pathSettings);
 			if (fSuccess) {
 				m_mapConfigs.insert(
 					std::pair<std::string, filesystem::path>(
@@ -817,7 +834,7 @@ int cmec_register(
 		Announce("Validating %s", g_szCMECSettingsName);
 
 		CMECModuleSettings cmecsettings;
-		cmecsettings.Read(pathModule);
+		cmecsettings.ReadFromFile(pathModule);
 
 		strName = cmecsettings.GetName();
 
@@ -826,7 +843,7 @@ int cmec_register(
 		Announce("Validating %s", g_szCMECTOCName);
 
 		CMECModuleTOC cmectoc;
-		cmectoc.Read(pathModule);
+		cmectoc.ReadFromModulePath(pathModule);
 
 		// Output metadata
 		strName = cmectoc.GetName();
@@ -928,11 +945,11 @@ int cmec_list(
 	for (auto it = lib.begin(); it != lib.end(); it++) {
 		if (CMECModuleTOC::ExistsInModulePath(it->second)) {
 			CMECModuleTOC cmectoc;
-			cmectoc.Read(it->second);
+			cmectoc.ReadFromModulePath(it->second);
 			Announce("  %s [%lu configurations]", it->first.c_str(), cmectoc.size());
 			if (fListAll) {
 				for (auto itconfig = cmectoc.begin(); itconfig != cmectoc.end(); itconfig++) {
-					Announce("  ..%s::%s", it->first.c_str(), itconfig->first.c_str());
+					Announce("  ..%s/%s", it->first.c_str(), itconfig->first.c_str());
 				}
 			}
 
@@ -951,7 +968,259 @@ int cmec_list(
 ///		Run the specified module.
 ///	</summary>
 int cmec_run(
+	const std::string & strObsDir,
+	const std::string & strModelDir,
+	const std::string & strWorkingDir,
+	const std::vector<std::string> & vecModules
 ) {
+	bool fSuccess;
+
+	// Verify existence of each directory
+	filesystem::path pathObsDir(strObsDir);
+	pathObsDir = pathObsDir.make_absolute();
+	if (!pathObsDir.exists()) {
+		Announce("ERROR: Cannot access path \"%s\"", strObsDir.c_str());
+		return (-1);
+	}
+	if (!pathObsDir.is_directory()) {
+		Announce("ERROR: \"%s\" is not a directory", strObsDir.c_str());
+		return (-1);
+	}
+
+	filesystem::path pathModelDir(strModelDir);
+	pathModelDir = pathModelDir.make_absolute();
+	if (!pathModelDir.exists()) {
+		Announce("ERROR: Cannot access path \"%s\"", strModelDir.c_str());
+		return (-1);
+	}
+	if (!pathModelDir.is_directory()) {
+		Announce("ERROR: \"%s\" is not a directory", strModelDir.c_str());
+		return (-1);
+	}
+
+	filesystem::path pathWorkingDir(strWorkingDir);
+	pathWorkingDir = pathWorkingDir.make_absolute();
+	if (!pathWorkingDir.exists()) {
+		Announce("ERROR: Cannot access path \"%s\"", strWorkingDir.c_str());
+		return (-1);
+	}
+	if (!pathWorkingDir.is_directory()) {
+		Announce("ERROR: \"%s\" is not a directory", strWorkingDir.c_str());
+		return (-1);
+	}
+
+	// Load the CMEC library
+	Announce(2, "Reading CMEC library");
+	CMECLibrary lib;
+	lib.Read();
+
+	// Build driver script list
+	Announce(2, "Identifying drivers");
+	std::vector<filesystem::path> vecModulePaths;
+	std::vector<filesystem::path> vecDriverScripts;
+	std::vector<filesystem::path> vecWorkingDirs;
+	std::vector<filesystem::path> vecEnvScripts;
+
+	for (int m = 0; m < vecModules.size(); m++) {
+
+		// Get the name of the base module
+		std::string strParentModule;
+		std::string strConfiguration;
+		if (vecModules[m].length() == 0) {
+			_EXCEPTION1("Zero length module name at index %i", m);
+		}
+		if (vecModules[m][vecModules[m].length()-1] == '/') {
+			Announce("ERROR: Dangling forward slash in module name \"%s\"", vecModules[m].c_str());
+			return (-1);
+		}
+		for (int i = 0; i < vecModules[m].length(); i++) {
+			if (!isalnum(vecModules[m][i]) && (vecModules[m][i] != '_') && (vecModules[m][i] != '/')) {
+				Announce("ERROR: Non-alphanumeric characters found in module name \"%s\"", vecModules[m].c_str());
+				return (-1);
+			}
+		}
+		for (int i = 0; i < vecModules[m].length(); i++) {
+			if (vecModules[m][i] == '/') {
+				strParentModule = vecModules[m].substr(0,i);
+				strConfiguration = vecModules[m].substr(i+1);
+				break;
+			}
+		}
+		if (strParentModule == "") {
+			strParentModule = vecModules[m];
+			strConfiguration = "";
+		}
+
+		// Check for base module in library
+		CMECLibrary::const_iterator itmodule = lib.find(strParentModule);
+		if (itmodule == lib.end()) {
+			Announce("ERROR: Module \"%s\" not found in CMEC library",
+				strParentModule.c_str());
+		}
+
+		// Check if module contains a settings file
+		if (CMECModuleSettings::ExistsInModulePath(itmodule->second)) {
+			if (strConfiguration != "") {
+				Announce("ERROR: Module \"%s\" only contains a single configuration", strParentModule.c_str());
+				return (-1);
+			}
+
+			CMECModuleSettings cmecsettings;
+			fSuccess = cmecsettings.ReadFromFile(itmodule->second / g_szCMECSettingsName);
+			if (!fSuccess) {
+				return (-1);
+			}
+
+			vecModulePaths.push_back(itmodule->second);
+			vecDriverScripts.push_back(itmodule->second / filesystem::path(cmecsettings.GetDriverScript()));
+			vecWorkingDirs.push_back(filesystem::path(cmecsettings.GetName()));
+
+		// Check if module contains a contents file
+		} else if (CMECModuleTOC::ExistsInModulePath(itmodule->second)) {
+			CMECModuleTOC cmectoc;
+			fSuccess = cmectoc.ReadFromModulePath(itmodule->second);
+			if (!fSuccess) {
+				return (-1);
+			}
+
+			bool fContainsConfiguration = false;
+			for (auto itsettings = cmectoc.begin(); itsettings != cmectoc.end(); itsettings++) {
+				if ((strConfiguration != "") && (strConfiguration != itsettings->first)) {
+					continue;
+				}
+				CMECModuleSettings cmecsettings;
+				fSuccess = cmecsettings.ReadFromFile(itsettings->second);
+				if (!fSuccess) {
+					return (-1);
+				}
+
+				vecModulePaths.push_back(itmodule->second);
+				vecDriverScripts.push_back(
+					itmodule->second /
+					filesystem::path(cmecsettings.GetDriverScript()));
+				vecWorkingDirs.push_back(filesystem::path(cmectoc.GetName()) / filesystem::path(cmecsettings.GetName()));
+
+				fContainsConfiguration = true;
+			}
+
+			if ((strConfiguration != "") && (!fContainsConfiguration)) {
+				Announce("ERROR: Module \"%s\" does not contain configuration \"%s\"",
+					strParentModule.c_str(),
+					strConfiguration.c_str());
+				return (-1);
+			}
+
+		} else {
+			Announce("ERROR: Module \"%s\" with path \"%s\" does not contain \"%s\" or \"%s\"",
+				strParentModule.c_str(),
+				itmodule->second.str().c_str(),
+				g_szCMECSettingsName,
+				g_szCMECTOCName);
+		}
+	}
+
+	_ASSERT(vecModulePaths.size() == vecDriverScripts.size());
+	_ASSERT(vecModulePaths.size() == vecWorkingDirs.size());
+
+	// Check for zero drivers
+	if (vecDriverScripts.size() == 0) {
+		Announce("ERROR: No driver files found");
+		return (-1);
+	}
+
+	// Output driver file list
+	Announce("\nThe following %lu module(s) will be executed:", vecDriverScripts.size());
+	AnnounceBanner();
+	for (int d = 0; d < vecDriverScripts.size(); d++) {
+		Announce("MODULE_NAME: %s", vecWorkingDirs[d].str().c_str());
+		Announce("MODULE_PATH: %s", vecModulePaths[d].str().c_str());
+		Announce("  %s", vecDriverScripts[d].str().c_str());
+	}
+	AnnounceBanner();
+
+	// Environment variables
+	Announce("\nThe following environment variables will be set:");
+	AnnounceBanner();
+	Announce("CMEC_OBS_DATA=%s", pathObsDir.str().c_str());
+	Announce("CMEC_MODEL_DATA=%s", pathModelDir.str().c_str());
+	Announce("CMEC_WK_DIR=%s/$MODULE_NAME", pathWorkingDir.str().c_str());
+	Announce("CMEC_CODE_DIR=$MODULE_PATH");
+	AnnounceBanner();
+
+	// Create output directories
+	AnnounceStartBlock("\nCreating output directories");
+
+	for (int d = 0; d < vecDriverScripts.size(); d++) {
+		filesystem::path pathOut = pathWorkingDir / vecWorkingDirs[d];
+
+		// Check for existence of output directories
+		if (pathOut.exists()) {
+			Announce("Path \"%s\" already exists. Overwrite? [y/N]", pathOut.str().c_str());
+			bool fRemove = false;
+			for (;;) {
+				char c = Terminal::GetSingleCharacter();
+				if ((c == 'y') || (c == 'Y')) {
+					fRemove = true;
+					break;
+				}
+				if ((c == '\n') || (c == '\r') || (c == 'n') || (c == 'N')) {
+					fRemove = false;
+					break;
+				}
+			}
+			if (!fRemove) {
+				Announce("ERROR: Unable to clear output directory");
+				return (-1);
+			}
+
+			// TODO: REPLACE WITH INTERNAL COMMANDS
+			std::string strCommand = "rm -rf " + pathOut.str();
+			int iReturn = std::system(strCommand.c_str());
+			if (iReturn != 0) {
+				Announce("ERROR: Executing \"%s\" (%i)", strCommand.c_str(), iReturn);
+				return (-1);
+			}
+		}
+
+		// Actually create the directories
+		fSuccess = create_directories(pathOut);
+		if (!fSuccess) {
+			Announce("ERROR: Unable to create directory \"%s\"", pathOut.str().c_str());
+			return (-1);
+		}
+		Announce("Created \"%s\"", pathOut.str().c_str());
+	}
+	AnnounceEndBlock(NULL);
+
+	// Create command scripts
+	AnnounceStartBlock("\nCreating bash driver environments");
+	for (int d = 0; d < vecDriverScripts.size(); d++) {
+		filesystem::path pathMyWorkingDir = pathWorkingDir / vecWorkingDirs[d];
+		filesystem::path pathScript = pathMyWorkingDir / "cmec_run.bash";
+		vecEnvScripts.push_back(pathScript);
+		Announce(pathScript.str().c_str());
+		std::ofstream ofscript(pathScript.str());
+		ofscript << "#!/bin/bash" << std::endl;
+		ofscript << "export CMEC_CODE_DIR=" << vecModulePaths[d].str() << std::endl;
+		ofscript << "export CMEC_OBS_DATA=" << pathObsDir.str() << std::endl;
+		ofscript << "export CMEC_MODEL_DATA=" << pathModelDir.str() << std::endl;
+		ofscript << "export CMEC_WK_DIR=" << pathMyWorkingDir.str() << std::endl;
+		ofscript << vecDriverScripts[d] << std::endl;
+		ofscript.close();
+
+		std::string strChmod = std::string("chmod u+x ") + pathScript.str();
+		system(strChmod.c_str());
+	}
+	AnnounceEndBlock(NULL);
+
+	// Executing command scripts
+	AnnounceStartBlock("\nExecuting driver scripts");
+	for (int d = 0; d < vecDriverScripts.size(); d++) {
+		Announce("%s", vecWorkingDirs[d].str().c_str());
+		system(vecEnvScripts[d].str().c_str());
+	}
+	AnnounceEndBlock(NULL);
+
 	return 0;
 }
 
@@ -978,8 +1247,8 @@ int main(int argc, char **argv) {
 
 	// Register
 	if (strCommand == "register") {
-		if (argc == 3) {
-			std::string strModuleDir = argv[2];
+		if (vecArg.size() == 1) {
+			std::string strModuleDir = vecArg[0];
 			return cmec_register(strModuleDir);
 
 		} else {
@@ -990,7 +1259,7 @@ int main(int argc, char **argv) {
 
 	// Unregister
 	if (strCommand == "unregister") {
-		if (argc == 3) {
+		if (vecArg.size() == 1) {
 			return cmec_unregister(vecArg[0]);
 
 		} else {
@@ -1001,10 +1270,10 @@ int main(int argc, char **argv) {
 
 	// List available modules
 	if (strCommand == "list") {
-		if (argc == 2) {
+		if (vecArg.size() == 0) {
 			return cmec_list(false);
 
-		} else if ((argc == 3) && (vecArg[0] == "all")) {
+		} else if ((vecArg.size() == 1) && (vecArg[0] == "all")) {
 			return cmec_list(true);
 
 		} else {
@@ -1015,14 +1284,16 @@ int main(int argc, char **argv) {
  
 	// Execute module(s)
 	if (strCommand == "run") {
-		if (argc == 4) {
-			std::string strModules = argv[1];
-			std::string strModelDir = argv[2];
-			std::string strOutputDir = argv[3];
-			return cmec_run();
+		if (vecArg.size() >= 4) {
+			std::vector<std::string> vecModules;
+			for (int i = 3; i < vecArg.size(); i++) {
+				vecModules.push_back(vecArg[i]);
+			}
+
+			return cmec_run(vecArg[0], vecArg[1], vecArg[2], vecModules);
 
 		} else {
-			printf("Usage: %s run <obs dir> <model dir> <output dir> <modules>\n", strExecutable.c_str());
+			printf("Usage: %s run <obs dir> <model dir> <working dir> <modules>\n", strExecutable.c_str());
 			return 1;
 		}
 	}
@@ -1034,7 +1305,7 @@ int main(int argc, char **argv) {
 		printf("%s unregister <module name>\n", strExecutable.c_str());
 		printf("%s list [all]\n", strExecutable.c_str());
 		printf("%s remove-library\n", strExecutable.c_str());
-		printf("%s run <modules> <model dir> <output dir>\n", strExecutable.c_str());
+		printf("%s run <obs dir> <model dir> <working dir> <modules>\n", strExecutable.c_str());
 		return 1;
 	}
 
