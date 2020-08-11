@@ -4,8 +4,7 @@ CMECDRIVERDIR= ../..
 # Load Makefile framework. 
 include $(CMECDRIVERDIR)/mk/framework.make
 
-FILES= Announce.cpp \
-       TimeObj.cpp
+FILES= TimeObj.cpp
 
 LIB_TARGET= libcmecbase.a
 
