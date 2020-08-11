@@ -2,6 +2,8 @@
 
 UNAME := $(shell uname)
 
+SYSTEM= UNKNOWN
+SYSTEM_MAKEFILE= default.make
 ifeq ($(UNAME),Darwin)
   SYSTEM= MACOSX
   SYSTEM_MAKEFILE= macosx.make
