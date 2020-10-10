@@ -9,7 +9,7 @@ CLEAN_TARGETS= $(addsuffix .clean,$(BUILD_TARGETS))
 
 CMECDRIVERLDFLAGS+= -L$(CMECDRIVERDIR)/src/base -L$(CMECDRIVERDIR)/src/contrib -lcmecbase -lcmeccontrib
 
-EXEC_FILES= cmec-driver.cpp
+EXEC_FILES= cmec-driver.cpp pmp-to-cmec.cpp
 
 EXEC_TARGETS= $(EXEC_FILES:%.cpp=%)
 

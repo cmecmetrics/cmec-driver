@@ -853,7 +853,7 @@ int cmec_register(
 		printf("Contains \033[1m%lu configurations\033[0m:\n", cmectoc.size());
 		printf("------------------------------------------------------------\n");
 		for (auto itconfig = cmectoc.begin(); itconfig != cmectoc.end(); itconfig++) {
-			printf("  %s/%s", strName.c_str(), itconfig->first.c_str());
+			printf("  %s/%s\n", strName.c_str(), itconfig->first.c_str());
 		}
 		printf("------------------------------------------------------------\n");
 
@@ -934,7 +934,7 @@ int cmec_list(
 	}
 
 	// List modules
-	printf("CMEC library contains %lu modules:", lib.size());
+	printf("CMEC library contains %lu modules:\n", lib.size());
 	printf("------------------------------------------------------------\n");
 	for (auto it = lib.begin(); it != lib.end(); it++) {
 		if (CMECModuleTOC::ExistsInModulePath(it->second)) {
@@ -962,42 +962,63 @@ int cmec_list(
 ///		Run the specified module.
 ///	</summary>
 int cmec_run(
-	const std::string & strObsDir,
-	const std::string & strModelDir,
-	const std::string & strWorkingDir,
+	std::string strObsDir,
+	std::string strModelDir,
+	std::string strWorkingDir,
 	const std::vector<std::string> & vecModules
 ) {
 	bool fSuccess;
 
 	// Verify existence of each directory
+	if (strObsDir.length() == 0) {
+		printf("ERROR: Observational data path not specified\n");
+		return (-1);
+	}
+	if ((strObsDir[0] != '/') && (strObsDir[0] != '\\')) {
+		strObsDir = std::string("./") + strObsDir;
+	}
 	filesystem::path pathObsDir(strObsDir);
-	pathObsDir = pathObsDir.make_absolute();
 	if (!pathObsDir.exists()) {
 		printf("ERROR: Cannot access path \"%s\"\n", strObsDir.c_str());
 		return (-1);
 	}
+	pathObsDir = pathObsDir.make_absolute();
 	if (!pathObsDir.is_directory()) {
 		printf("ERROR: \"%s\" is not a directory\n", strObsDir.c_str());
 		return (-1);
 	}
 
+	if (strModelDir.length() == 0) {
+		printf("ERROR: Model data path not specified\n");
+		return (-1);
+	}
+	if ((strModelDir[0] != '/') && (strModelDir[0] != '\\')) {
+		strModelDir = std::string("./") + strModelDir;
+	}
 	filesystem::path pathModelDir(strModelDir);
-	pathModelDir = pathModelDir.make_absolute();
 	if (!pathModelDir.exists()) {
 		printf("ERROR: Cannot access path \"%s\"\n", strModelDir.c_str());
 		return (-1);
 	}
+	pathModelDir = pathModelDir.make_absolute();
 	if (!pathModelDir.is_directory()) {
 		printf("ERROR: \"%s\" is not a directory\n", strModelDir.c_str());
 		return (-1);
 	}
 
+	if (strWorkingDir.length() == 0) {
+		printf("ERROR: Working data path not specified\n");
+		return (-1);
+	}
+	if ((strWorkingDir[0] != '/') && (strWorkingDir[0] != '\\')) {
+		strWorkingDir = std::string("./") + strWorkingDir;
+	}
 	filesystem::path pathWorkingDir(strWorkingDir);
-	pathWorkingDir = pathWorkingDir.make_absolute();
 	if (!pathWorkingDir.exists()) {
 		printf("ERROR: Cannot access path \"%s\"\n", strWorkingDir.c_str());
 		return (-1);
 	}
+	pathWorkingDir = pathWorkingDir.make_absolute();
 	if (!pathWorkingDir.is_directory()) {
 		printf("ERROR: \"%s\" is not a directory\n", strWorkingDir.c_str());
 		return (-1);
@@ -1182,7 +1203,7 @@ int cmec_run(
 			printf("ERROR: Unable to create directory \"%s\"\n", pathOut.str().c_str());
 			return (-1);
 		}
-		printf("Created \"%s\"\n", pathOut.str().c_str());
+		printf("\nCreated \"%s\"\n", pathOut.str().c_str());
 	}
 
 	// Create command scripts
@@ -1297,7 +1318,7 @@ int main(int argc, char **argv) {
 		printf("%s register <module directory>\n", strExecutable.c_str());
 		printf("%s unregister <module name>\n", strExecutable.c_str());
 		printf("%s list [all]\n", strExecutable.c_str());
-		printf("%s remove-library\n", strExecutable.c_str());
+		//printf("%s remove-library\n", strExecutable.c_str());
 		printf("%s run <obs dir> <model dir> <working dir> <modules>\n", strExecutable.c_str());
 		return 1;
 	}
