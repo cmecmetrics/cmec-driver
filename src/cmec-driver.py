@@ -6,8 +6,8 @@ Interface for running CMEC-compliant modules.
 Examples:
     Registering a module::
 
-    $ python cmec_driver.py register -modulePath <module_directory_path>
-    $ python cmec_driver.py register -modulePath ~/modules/ILAMB
+    $ python cmec_driver.py register -module_path <module_directory_path>
+    $ python cmec_driver.py register -module_path ~/modules/ILAMB
 
     Unregistering a module::
 
@@ -25,15 +25,12 @@ Examples:
 
 Attributes:
     version (str): CMEC driver version
-    cmecLibraryName (str): standard file name for cmec library
-    cmecTOCName (str): standard file name for module contents
-    cmecSettingsName (str): standard file name for module settings
+    cmec_library_name (str): standard file name for cmec library
+    cmec_toc_name (str): standard file name for module contents
+    cmec_settings_name (str): standard file name for module settings
 
 Todo:
-Improve flag usage
 Add tests
-Clean up style
-Unregister muliple modules at once?
 """
 from pathlib import Path
 import json
@@ -41,10 +38,10 @@ import sys
 import os
 import string
 
-version = "20201114"
-cmecLibraryName = ".cmeclibrary"
-cmecTOCName = "contents.json"
-cmecSettingsName = "settings.json"
+version = "20200731"
+cmec_library_name = ".cmeclibrary"
+cmec_toc_name = "contents.json"
+cmec_settings_name = "settings.json"
 
 
 def user_prompt(question, default = "yes"):
@@ -86,12 +83,12 @@ class CMECLibrary():
     the library.
     """
     def __init__(self):
-        self.mapModulePaths = {}
+        self.map_module_path_list = {}
         self.jlib = {"modules": {}, "cmec-driver": {}, "version": version}
 
     def Clear(self):
         self.path = ""
-        self.mapModulePaths = {}
+        self.map_module_path_list = {}
         self.jlib = {"modules": {}, "cmec-driver": {}, "version": version}
 
     def InitializePath(self):
@@ -99,7 +96,7 @@ class CMECLibrary():
         homedir = Path.home()
 
         if homedir.exists():
-            self.path = homedir / cmecLibraryName
+            self.path = homedir / cmec_library_name
 
     def Read(self):
         """Load the contents of the CMEC library.
@@ -136,10 +133,10 @@ class CMECLibrary():
             if not isinstance(self.jlib["modules"][key], str):
                 raise CMECError("Malformed CMEC library file: an entry of the 'modules' array is not of type string")
 
-            if key in self.mapModulePaths:
+            if key in self.map_module_path_list:
                 raise CMECError("Malformed CMEC library file: Repeated module name " + key)
 
-            self.mapModulePaths[key] = Path(self.jlib["modules"][key])
+            self.map_module_path_list[key] = Path(self.jlib["modules"][key])
 
     def Write(self):
         self.InitializePath()
@@ -147,15 +144,15 @@ class CMECLibrary():
         with open(self.path, "w") as outfile:
             json.dump(self.jlib, outfile)
 
-    def Insert(self,strModuleName, filepath):
+    def Insert(self,module_name, filepath):
         """Add a module to the library
 
         Args:
-            strModuleName (str): name of module
+            module_name (str): name of module
             filepath (str or Path): path to the module directory
         """
         # Check if module already exists:
-        if strModuleName in self.mapModulePaths:
+        if module_name in self.map_module_path_list:
             print("Module already exists in library; if path has changed first run 'unregister'")
             return
 
@@ -166,37 +163,37 @@ class CMECLibrary():
                 filepath = Path(filepath)
 
         # Insert module
-        self.mapModulePaths[strModuleName] = filepath
-        self.jlib["modules"][strModuleName] = str(filepath)
+        self.map_module_path_list[module_name] = filepath
+        self.jlib["modules"][module_name] = str(filepath)
 
 
-    def Remove(self,strModuleName):
-        if strModuleName in self.mapModulePaths:
-            filepath = self.mapModulePaths[strModuleName]
+    def Remove(self,module_name):
+        if module_name in self.map_module_path_list:
+            filepath = self.map_module_path_list[module_name]
         else:
-            raise CMECError("Module " + strModuleName + " not found in library")
+            raise CMECError("Module " + module_name + " not found in library")
 
-        if strModuleName not in self.jlib["modules"]:
+        if module_name not in self.jlib["modules"]:
             raise CMECError("Module appears in map but not in json representation")
 
         # Remove from map and json
-        self.mapModulePaths.pop(strModuleName)
-        self.jlib["modules"].pop(strModuleName)
+        self.map_module_path_list.pop(module_name)
+        self.jlib["modules"].pop(module_name)
 
     def size(self):
         """Get the number of modules in the library"""
-        return len(self.mapModulePaths)
+        return len(self.map_module_path_list)
 
     def find(self, strModule):
         """Get the path to a specific module"""
-        if strModule in self.mapModulePaths:
-            return self.mapModulePaths[strModule]
+        if strModule in self.map_module_path_list:
+            return self.map_module_path_list[strModule]
         else:
             return False
 
     def getModuleList(self):
         """Get a list of the modules in the library"""
-        return [key for key in self.mapModulePaths]
+        return [key for key in self.map_module_path_list]
 
 
 class CMECModuleSettings():
@@ -204,7 +201,7 @@ class CMECModuleSettings():
     def __init__(self):
         self.jsettings = {}
 
-    def ExistsInModulePath(self, filepath):
+    def ExistsInmodule_path(self, filepath):
         """Check if a settings file exists for a module.
 
         Returns True if settings.json found in path, otherwise False.
@@ -215,15 +212,15 @@ class CMECModuleSettings():
         if not isinstance(filepath, Path):
             filepath = Path(filepath)
 
-        pathSettings = filepath / cmecSettingsName
+        path_settings = filepath / cmec_settings_name
 
-        return pathSettings.exists()
+        return path_settings.exists()
 
     def Clear(self):
         self.path = ""
         self.jsettings = {}
 
-    def ReadFromFile(self, pathSettings):
+    def ReadFromFile(self, path_settings):
         """Read the CMEC module contents file.
 
         Loads the contents file as a json and checks that the contents
@@ -231,21 +228,21 @@ class CMECModuleSettings():
         """
         self.Clear()
 
-        if not isinstance(pathSettings, Path):
-            pathSettings = Path(pathSettings)
+        if not isinstance(path_settings, Path):
+            path_settings = Path(path_settings)
 
-        self.path = pathSettings
+        self.path = path_settings
 
-        with open(self.path, "r") as cmecjson:
-            self.jsettings = json.load(cmecjson)
+        with open(self.path, "r") as cmec_json:
+            self.jsettings = json.load(cmec_json)
 
         for key in ["settings", "obslist"]:
             if key not in self.jsettings:
-                raise CMECError("Malformed CMEC settings file " + str(pathSettings) + ": missing key " + key)
+                raise CMECError("Malformed CMEC settings file " + str(path_settings) + ": missing key " + key)
 
         for key in ["name", "long_name", "driver"]:
             if key not in self.jsettings["settings"]:
-                raise CMECError("Malformed CMEC settings file " + str(pathSettings) + ": missing key settings:" + key)
+                raise CMECError("Malformed CMEC settings file " + str(path_settings) + ": missing key settings:" + key)
                 # also check type
 
     def GetName(self):
@@ -264,52 +261,52 @@ class CMECModuleSettings():
 class CMECModuleTOC():
     """Interface with module contents file."""
     def __init__(self):
-        self.mapConfigs = {}
+        self.map_configs = {}
         self.jcmec = {}
         self.jcontents = {}
 
-    def ExistsInModulePath(self, pathModule):
+    def ExistsInmodule_path(self, path_module):
         """Check if contents file exists for module
 
         Returns True if contents.json found in module directory. 
         Otherwise, returns False.
 
         Args:
-            pathModule (str or Path): path to module directory
+            path_module (str or Path): path to module directory
         """
-        if not isinstance(pathModule, Path):
-            pathModule = Path(pathModule)
+        if not isinstance(path_module, Path):
+            path_module = Path(path_module)
 
-        pathSettings = pathModule / cmecTOCName
+        path_settings = path_module / cmec_toc_name
 
-        return pathSettings.exists()
+        return path_settings.exists()
 
     def Clear(self):
         self.path = ""
-        self.mapConfigs = {}
+        self.map_configs = {}
         self.jcmec = {}
         self.jcontents = {}
 
-    def ReadFromModulePath(self, pathModule):
+    def ReadFrommodule_path(self, path_module):
         """Read the CMEC module contents file
         
         Loads the contents.json for the specified module and
         checks that the json matches the CMEC standards.
 
         Args:
-            pathModule (str or Path): path to the module directory
+            path_module (str or Path): path to the module directory
         """
         # Clear and get path
         self.Clear()
 
-        if not isinstance(pathModule, Path):
-            pathModule = Path(pathModule)
+        if not isinstance(path_module, Path):
+            path_module = Path(path_module)
 
-        self.path = pathModule / cmecTOCName
+        self.path = path_module / cmec_toc_name
 
         # Parse and validate CMEC json
-        with open(self.path, "r") as cmectoc:
-            self.jcmec = json.load(cmectoc)
+        with open(self.path, "r") as cmec_toc:
+            self.jcmec = json.load(cmec_toc)
 
         for key in ["module", "contents"]:
             if key not in self.jcmec:
@@ -326,33 +323,33 @@ class CMECModuleTOC():
 
         for item in self.jcontents:
             if isinstance(item, str):
-                cmecsettings = CMECModuleSettings()
-                pathSettings = pathModule / item
-                cmecsettings.ReadFromFile(pathSettings)
-                self.mapConfigs[cmecsettings.GetName()] = pathSettings
+                cmec_settings = CMECModuleSettings()
+                path_settings = path_module / item
+                cmec_settings.ReadFromFile(path_settings)
+                self.map_configs[cmec_settings.GetName()] = path_settings
 
             else:
                 print("Malformed CMEC Library file: an entry of the 'contents' array is not of type string")
 
-    def Insert(self, strConfigName, filepath):
+    def Insert(self, config_name, filepath):
         """Add a configuration
 
         Args:
-            strConfigName (str): name of configuration
+            config_name (str): name of configuration
             filepath (str or Path): path to the configuration file
         """
         # Check if config already exists
-        if self.mapConfigs(strConfigName):
-            print("Repeated configuration name " + strConfigName)
+        if self.map_configs(config_name):
+            print("Repeated configuration name " + config_name)
             return
 
         if not isinstance(filepath, Path):
             filepath = Path(filepath)
 
         # Insert module
-        self.mapConfigs[strConfigName] = filepath
+        self.map_configs[config_name] = filepath
 
-        self.jcmec["contents"][strConfigName] = str(filepath)
+        self.jcmec["contents"][config_name] = str(filepath)
 
     def getName(self):
         """Return the name of the module"""
@@ -364,60 +361,61 @@ class CMECModuleTOC():
 
     def size(self):
         """Return the number of configs"""
-        return len(self.mapConfigs)
+        return len(self.map_configs)
 
     def configList(self):
         """Return the list of configs"""
-        return [key for key in self.mapConfigs]
+        return [key for key in self.map_configs]
 
     def find(self, setting):
         """Return the setting file path"""
-        if setting in self.mapConfigs:
-            return self.mapConfigs[setting]
+        if setting in self.map_configs:
+            return self.map_configs[setting]
         else:
             return False
 
 
-def cmec_register(strDirectory):
+def cmec_register(module_dir):
     """Add a module to the cmec library.
 
     Args:
-        strDirectory (str or Path): path to the module directory
+        module_dir (str or Path): path to the module directory
     """
-    if not isinstance(strDirectory, Path):
-        strDirectory = Path(strDirectory)
+    print(module_dir)
+    if not isinstance(module_dir, Path):
+        module_dir = Path(module_dir)
     
-    print("Registering " + str(strDirectory))
+    print("Registering " + str(module_dir))
 
-    cmecsettings = CMECModuleSettings()
-    cmectoc = CMECModuleTOC()
+    cmec_settings = CMECModuleSettings()
+    cmec_toc = CMECModuleTOC()
 
     # check if module contains a settings file
-    if cmecsettings.ExistsInModulePath(strDirectory):
-        print("Validating " + cmecSettingsName)
+    if cmec_settings.ExistsInmodule_path(module_dir):
+        print("Validating " + cmec_settings_name)
 
-        cmecsettings.ReadFromFile(strDirectory / cmecSettingsName)
+        cmec_settings.ReadFromFile(module_dir / cmec_settings_name)
 
-        strName = cmecsettings.GetName()
+        str_name = cmec_settings.GetName()
 
     # or check if module contains a contents file
-    elif cmectoc.ExistsInModulePath(strDirectory):
-        print("Validating " + cmecTOCName)
+    elif cmec_toc.ExistsInmodule_path(module_dir):
+        print("Validating " + cmec_toc_name)
 
-        cmectoc.ReadFromModulePath(strDirectory)
+        cmec_toc.ReadFrommodule_path(module_dir)
 
-        strName = cmectoc.getName()
-        strLongName = cmectoc.getLongName()
+        str_name = cmec_toc.getName()
+        str_long_name = cmec_toc.getLongName()
 
-        print("Module " + strName + strLongName)
-        print("Contains " + str(cmectoc.size()) + " configurations")
+        print("Module " + str_name + " " + str_long_name)
+        print("Contains " + str(cmec_toc.size()) + " configurations")
         print("------------------------------------------------------------")
-        for item in cmectoc.configList():
-            print(strName + "/" + item)
+        for item in cmec_toc.configList():
+            print(str_name + "/" + item)
         print("------------------------------------------------------------")
 
     else:
-        raise CMECError("Module path must contain " + cmecTOCName + " or " + cmecSettingsName)
+        raise CMECError("Module path must contain " + cmec_toc_name + " or " + cmec_settings_name)
 
     # Add to CMEC library
     print("Reading CMEC library")
@@ -425,24 +423,24 @@ def cmec_register(strDirectory):
     lib.Read()
 
     print("Adding new module to library")
-    lib.Insert(strName, strDirectory)
+    lib.Insert(str_name, module_dir)
 
     print("Writing CMEC library")
     lib.Write()
 
 
-def cmec_unregister(strModuleName):
+def cmec_unregister(module_name):
     """Remove a module from the cmec library.
 
     Args: 
-        strModuleName (str): name of module to remove
+        module_name (str): name of module to remove
     """
     print("Reading the CMEC library")
     lib = CMECLibrary()
     lib.Read()
 
     print("Removing module")
-    lib.Remove(strModuleName)
+    lib.Remove(module_name)
 
     print("Writing CMEC library")
     lib.Write()
@@ -462,31 +460,33 @@ def cmec_list(listAll):
     if (lib.size() == 0):
         raise CMECError("CMEC library contains no modules")
 
-    cmectoc = CMECModuleTOC()
+    cmec_toc = CMECModuleTOC()
 
     # List modules
     print("CMEC library contains " + str(lib.size()) + " modules")
     print("------------------------------------------------------------")
     for module in lib.getModuleList():
-            modPath = lib.find(module)
-            if cmectoc.ExistsInModulePath(modPath):
-                cmectoc.ReadFromModulePath(modPath)
-                print(" " + module + " [" + str(cmectoc.size()) + " configurations]" )
+            module_dir = lib.find(module)
+            if cmec_toc.ExistsInmodule_path(module_dir):
+                cmec_toc.ReadFrommodule_path(module_dir)
+                print(" " + module + " [" + str(cmec_toc.size()) + " configurations]" )
 
                 if listAll:
-                    for config in cmectoc.configList():
+                    for config in cmec_toc.configList():
                         print("    " + module + "/" + config)
+            else:
+                print(" " + module + " [1 configuration]")
     print("------------------------------------------------------------")
 
 
-def cmec_run(strObsDir, strModelDir, strWorkingDir, vecModules):
+def cmec_run(strModelDir, strWorkingDir, module_list, strObsDir=""):
     """Run a module from the cmec library.
 
     Args:
         strObsDir (str or Path): path to observation directory
         strModelDir (str or Path): path to model directory
         strWorkingDir (str or Path): path to output directory
-        vecModules (list of strings): List of the module names to run
+        module_list (list of strings): List of the module names to run
 
     Todo:
     Handle case with no observations
@@ -494,23 +494,25 @@ def cmec_run(strObsDir, strModelDir, strWorkingDir, vecModules):
     """
 
     # Verify existence of each directory
-    dirList = {"Observation": strObsDir, "Model": strModelDir, "Working": strWorkingDir}
+    dir_list = {"Model": strModelDir, "Working": strWorkingDir}
+    if strObsDir != "":
+        dir_list.update({"Observations": strObsDir})
 
-    for key in dirList: 
-        if isinstance(dirList[key],str) and len(dirList[key]) == 0:
+    for key in dir_list: 
+        if isinstance(dir_list.get(key),str) and len(dir_list[key]) == 0:
             raise CMECError(key + " data path not specified")
         else:
-            tmpdir = dirList[key]
+            tmpdir = dir_list.get(key)
             if isinstance(tmpdir, str):
                 tmpdir = Path(tmpdir)
             if tmpdir.absolute().is_dir():
-                dirList[key] = tmpdir.absolute()
+                dir_list[key] = tmpdir.absolute()
             else:
                 raise CMECError(str(tmpdir.absolute()) + " does not exist or is not a directory")
 
-    obsPath = dirList["Observation"]
-    modPath = dirList["Model"]
-    workPath = dirList["Working"]
+    obspath = dir_list.get("Observations")
+    modpath = dir_list.get("Model")
+    workpath = dir_list.get("Working")
 
     # Load the CMEC library
     print("Reading CMEC library")
@@ -520,72 +522,71 @@ def cmec_run(strObsDir, strModelDir, strWorkingDir, vecModules):
     # Build dirver script list
     print("Identifying drivers")
 
-    vecModulePaths = []
-    vecDriverScripts = []
-    vecWorkingDirs = []
+    module_path_list = []
+    driver_script_list = []
+    working_dir_list = []
 
-    for module in vecModules:
+    for module in module_list:
         # Get name of base module
         for char in module.lower():
             if char not in string.ascii_lowercase + string.digits + "_" + "/":
                 raise CMECError("Non-alphanumeric characters found in module name " + module)
 
-        strParentModule = module
-        strConfiguration = ""
+        str_parent_module = module
+        str_configuration = ""
         if "/" in module:
-            strParentModule, strConfiguration = module.split("/")
+            str_parent_module, str_configuration = module.split("/")
 
         # Check for base module in library
-        modulePath = lib.find(strParentModule)
-        if not modulePath:
-            raise CMECError("Module " + strParentModule + " not found in CMEC library")
+        module_path = lib.find(str_parent_module)
+        if not module_path:
+            raise CMECError("Module " + str_parent_module + " not found in CMEC library")
 
         # Check if module contains a settings file
-        cmecsettings = CMECModuleSettings()
-        cmectoc = CMECModuleTOC()
+        cmec_settings = CMECModuleSettings()
+        cmec_toc = CMECModuleTOC()
 
-        if cmecsettings.ExistsInModulePath(modulePath):
-            #if strConfiguration != "":
-            #   return print("ERROR: Module " + strParentModule + " only contains a single configuration")
-            cmecsettings.ReadFromFile(modulePath / cmecSettingsName)
-
-            vecModulePaths.append(modulePath)
-            vecDriverScripts.append(modulePath / cmecsettings.GetDriverScript())
-            vecWorkingDirs.append(Path(cmecsettings.GetName()))
+        if cmec_settings.ExistsInmodule_path(module_path):
+            if str_configuration != "":
+                raise CMECError("Module " + str_parent_module + " only contains a single configration")
+            else:
+                cmec_settings.ReadFromFile(module_path / cmec_settings_name)
+                module_path_list.append(module_path)
+                driver_script_list.append(module_path / cmec_settings.GetDriverScript())
+                working_dir_list.append(Path(cmec_settings.GetName()))
 
         # Check if module contains a contents file
-        elif cmectoc.ExistsInModulePath(modulePath):
-            cmectoc.ReadFromModulePath(modulePath)
-            settings = cmectoc.configList()
-            configFound = False
+        elif cmec_toc.ExistsInmodule_path(module_path):
+            cmec_toc.ReadFrommodule_path(module_path)
+            settings = cmec_toc.configList()
+            config_found = False
 
             for setting in settings:
-                if strConfiguration == setting:
-                    settingPath = cmectoc.find(setting)
-                    cmecsettings.ReadFromFile(settingPath)
+                if (str_configuration == "") or (str_configuration == setting):
+                    setting_path = cmec_toc.find(setting)
+                    cmec_settings.ReadFromFile(setting_path)
+                    module_path_list.append(setting_path)
+                    driver_script_list.append(module_path / cmec_settings.GetDriverScript())
+                    working_dir_list.append(Path(cmec_toc.getName()) / Path(cmec_settings.GetName()))   
+                    config_found = True
 
-                    vecModulePaths.append(settingPath)
-                    vecDriverScripts.append(modulePath / cmecsettings.GetDriverScript())
-                    vecWorkingDirs.append(Path(cmectoc.getName()) / Path(cmecsettings.GetName()))   
-                    configFound = True
-
-            if ((strConfiguration != "") and not configFound):
-                raise CMECError("Module " + strParentModule + " does not contain configuration " + strConfiguration)    
+            if ((str_configuration != "") and not config_found):
+                raise CMECError("Module " + str_parent_module + " does not contain configuration " + str_configuration)    
         else:
-            raise CMECError("Module " + strParentModule + " with path " + modulePath + " does not contain " + cmecSettingsName + " or " + cmecTOCName)  
+            raise CMECError("Module " + str_parent_module + " with path " + module_path + " does not contain " + cmec_settings_name + " or " + cmec_toc_name)  
 
-    assert len(vecModulePaths) == len(vecDriverScripts)
-    assert len(vecModulePaths) == len(vecWorkingDirs)
+    assert len(module_path_list) == len(driver_script_list)
+    assert len(module_path_list) == len(working_dir_list)
 
     # Check for zero drivers
-    if not vecDriverScripts:
+    if not driver_script_list:
         raise CMECError("No driver files found")
 
     # Output driver file list
-    print("The following " + str(len(vecDriverScripts)) + " modules will be executed:")
+    print("The following " + str(len(driver_script_list)) + " modules will be executed:")
     print("------------------------------------------------------------")
-    for workingDir, path, driver in zip(vecWorkingDirs, vecModules, vecDriverScripts):
-        print("MODULE_NAME: " + str(workingDir))
+    for working_dir, path, driver in zip(working_dir_list, module_list, driver_script_list):
+        print("MODULE_NAME: " + str(working_dir))
         print("MODULE_PATH: " + str(path))
         print("  " + str(driver))
     print("------------------------------------------------------------")
@@ -593,49 +594,49 @@ def cmec_run(strObsDir, strModelDir, strWorkingDir, vecModules):
     # Environment variables
     print("The following environment variables will be set:")
     print("------------------------------------------------------------")
-    print("CMEC_OBS_DATA=" + str(obsPath))
-    print("CMEC_MODEL_DATA=" + str(modPath))
-    print("CMEC_WK_DIR=" + str(workPath) + "/$MODULE_NAME")
+    print("CMEC_OBS_DATA=" + str(obspath))
+    print("CMEC_MODEL_DATA=" + str(modpath))
+    print("CMEC_WK_DIR=" + str(workpath) + "/$MODULE_NAME")
     print("CMEC_CODE_DIR=$MODULE_PATH")
     print("------------------------------------------------------------")
 
     # Create output directories
     print("Creating output directories")
 
-    for driver, workingDir in zip(vecDriverScripts, vecWorkingDirs):
-        pathOut = workPath / workingDir
+    for driver, working_dir in zip(driver_script_list, working_dir_list):
+        path_out = workpath / working_dir
 
         # Check for existence of output directories
-        if pathOut.exists():
-            question = "Path " + str(pathOut) + " already exists. Overwrite?"
+        if path_out.exists():
+            question = "Path " + str(path_out) + " already exists. Overwrite?"
             overwrite = user_prompt(question, default="yes")
             if overwrite:
-                os_command = "rm -rf " + str(pathOut)
+                os_command = "rm -rf " + str(path_out)
                 os.system(os_command)
                 # Check exit code?
             else:
                 raise CMECError("Unable to clear output directory")
 
         # Create directories
-        pathOut.mkdir(parents=True)
+        path_out.mkdir(parents=True)
 
     # Create command scripts
-    vecEnvScripts = []
-    for driver, workingDir, mPath in zip(vecDriverScripts, vecWorkingDirs, vecModulePaths):
-        pathMyWorkingDir = workPath / workingDir
-        pathScript = pathMyWorkingDir / "cmec_run.bash"
-        vecEnvScripts.append(pathScript)
-        print(str(pathScript))
-        with open(pathScript, "w") as script:
-            script.write("""#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\n%s""" % (modulePath, obsPath, modPath, workPath, driver))
-        os.system("chmod u+x " + str(pathScript))
+    env_scripts = []
+    for driver, workingDir, mPath in zip(driver_script_list, working_dir_list, module_path_list):
+        path_working_dir = workpath / workingDir
+        path_script = path_working_dir / "cmec_run.bash"
+        env_scripts.append(path_script)
+        print(str(path_script))
+        with open(path_script, "w") as script:
+            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\n%s" % (module_path, obspath, modpath, path_working_dir, driver))
+        os.system("chmod u+x " + str(path_script))
 
     # Execute command scripts
     print("Executing driver scripts")
-    for envScript, workDir in zip(vecEnvScripts, vecWorkingDirs):
+    for env_script, work_dir in zip(env_scripts, working_dir_list):
         print("------------------------------------------------------------")
-        print(str(workDir))
-        os.system(str(envScript))
+        print(str(work_dir))
+        os.system(str(env_script))
     print("------------------------------------------------------------")
 
 
@@ -643,31 +644,42 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description = "Process command line cmec-driver input")
-    parser.add_argument("command")
-    parser.add_argument("-obs")
-    parser.add_argument("-model")
-    parser.add_argument("-output")
-    parser.add_argument("-modulePath")
-    parser.add_argument("-module", nargs="+")
-    parser.add_argument("-all", action='store_true')
+        description="Process command line cmec-driver input")
+    # Create subparsers for register, unregister, list, and run commands
+    subparsers = parser.add_subparsers(help="sub-command help", dest="command")
+
+    parser_reg = subparsers.add_parser("register", help="register")
+    parser_reg.add_argument("modpath", type=str)
+
+    parser_unreg = subparsers.add_parser("unregister", help="unregister")
+    parser_unreg.add_argument("module")
+
+    parser_list = subparsers.add_parser("list", help="list modules")
+    parser_list.add_argument("-all", action="store_true",
+        default=False, help="list modules and configurations")
+
+    parser_run = subparsers.add_parser("run", help="run module")
+    parser_run.add_argument("-obs", default="", help="observations directory")
+    parser_run.add_argument("model", help="model directory")
+    parser_run.add_argument("output", help="output directory")
+    parser_run.add_argument("module", nargs="+", help="module names")
 
     # get the rest of the arguments
     args = parser.parse_args()
 
     # Register
     if args.command == "register":
-        if args.modulePath:
-            cmec_register(args.modulePath)
+        if args.modpath:
+            cmec_register(args.modpath)
         else:
-            print("Usage: python cmec-driver.py register -module <mod dir>")
+            print("Usage: python cmec-driver.py register <mod dir>")
 
     # Unregister
     if args.command == "unregister":
         if args.module:
-            cmec_unregister(args.module[0])
+            cmec_unregister(args.module)
         else:
-            print("Usage: python cmec-driver.py unregister -module <mod dir>")
+            print("Usage: python cmec-driver.py unregister <mod dir>")
 
     # List
     if args.command == "list":
@@ -681,6 +693,9 @@ if __name__ == "__main__":
     # Execute
     if args.command == "run":
         if (args.obs and args.model and args.output and args.module):
-            cmec_run(args.obs, args.model, args.output, args.module)
+            cmec_run(args.model, args.output, args.module, args.obs)
+        elif (args.model and args.output and args.module):
+            cmec_run(args.model, args.output, args.module)
         else:
-            print("Usage: python cmec-driver.py run -obs <obs dir> -model <model dir> -output <out dir> -module <mod name>")
+            print("Usage: python cmec-driver.py run -obs <obs dir> <model dir> <out dir> <mod names>")
+
