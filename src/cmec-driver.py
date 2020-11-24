@@ -6,12 +6,12 @@ Interface for running CMEC-compliant modules.
 Examples:
     Registering a module::
 
-    $ python cmec_driver.py register -module_path <module_directory_path>
-    $ python cmec_driver.py register -module_path ~/modules/ILAMB
+    $ python cmec_driver.py register <module_directory_path>
+    $ python cmec_driver.py register ~/modules/ILAMB
 
     Unregistering a module::
 
-    $ python cmec_driver.py unregister -module <module_name>
+    $ python cmec_driver.py unregister <module_name>
     $ python cmec_driver.py unregister ILAMB
 
     List modules::
@@ -20,8 +20,8 @@ Examples:
 
     Run a module::
 
-    $ python cmec_driver.py run -obs <observations_folder> -model <model_folder> -output <output_folder> -module <module_name>
-    $ python cmec_driver.py run -obs ./obs -model ./model -output ./output -module PMP/meanclimate
+    $ python cmec_driver.py run -obs <observations_folder> <model_folder> <output_folder> <module_name>
+    $ python cmec_driver.py run -obs ./obs ./model ./output PMP/meanclimate
 
 Attributes:
     version (str): CMEC driver version
@@ -573,7 +573,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, strObsDir=""):
             if ((str_configuration != "") and not config_found):
                 raise CMECError("Module " + str_parent_module + " does not contain configuration " + str_configuration)    
         else:
-            raise CMECError("Module " + str_parent_module + " with path " + module_path + " does not contain " + cmec_settings_name + " or " + cmec_toc_name)  
+            raise CMECError("Module " + str_parent_module + " with path " + str(module_path) + " does not contain " + cmec_settings_name + " or " + cmec_toc_name)  
 
     assert len(module_path_list) == len(driver_script_list)
     assert len(module_path_list) == len(working_dir_list)
@@ -648,17 +648,17 @@ if __name__ == "__main__":
     # Create subparsers for register, unregister, list, and run commands
     subparsers = parser.add_subparsers(help="sub-command help", dest="command")
 
-    parser_reg = subparsers.add_parser("register", help="register")
+    parser_reg = subparsers.add_parser("register", help="add module to library")
     parser_reg.add_argument("modpath", type=str)
 
-    parser_unreg = subparsers.add_parser("unregister", help="unregister")
+    parser_unreg = subparsers.add_parser("unregister", help="remove module from library")
     parser_unreg.add_argument("module")
 
     parser_list = subparsers.add_parser("list", help="list modules")
     parser_list.add_argument("-all", action="store_true",
         default=False, help="list modules and configurations")
 
-    parser_run = subparsers.add_parser("run", help="run module")
+    parser_run = subparsers.add_parser("run", help="run chosen modules")
     parser_run.add_argument("-obs", default="", help="observations directory")
     parser_run.add_argument("model", help="model directory")
     parser_run.add_argument("output", help="output directory")
