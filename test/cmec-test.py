@@ -1,19 +1,24 @@
 """CMEC test cases
 
-Generates the contents, settings, and driver files for a toy module.
-Runs all the cmec-driver commands for the module.
+Generates the contents, settings, and driver files for a fake module.
+Runs the cmec-driver commands for the fake module to check basic 
+functionality.
 
 Todo:
-Test running multiple modules
 Test errors - no driver files, no contents, no settings, etc
-Test module with only 1 config
 """
 import json
 from pathlib import Path
 import os
 
 class setup_test_module():
-    """Sets up a test module directory."""
+    """Sets up a test module directory.
+
+    Args:
+        module_name (str): Name of CMEC module
+        module_path (str): path to module directory
+        config_list (list of str): list of configurations to make
+    """
     def __init__(self, module_name, module_path, config_list):
         os.system("rm " + module_path + "/*")
 
@@ -104,19 +109,24 @@ def test_run(module_name, obs=True):
 
 
 if __name__ == "__main__":
-    module_path = "/Users/ordonez4/Documents/test_module"
-    module_name = "CMECTEST"
-    config_list = ["test1"]
+    # Set up two fake modules
     # If there is only one configuration, config name will be module name
-    if len(config_list) < 2:
-        config_list = [module_name]
-    print(config_list)
-    setup_test_module(module_name, module_path, config_list)
+    module_path_1 = "/Users/ordonez4/Documents/test_module"
+    module_name_1 = "CMECTEST_1"
+    config_list_1 = ["CMECTEST_1"]
+    setup_test_module(module_name_1, module_path_1, config_list_1)
 
+    module_path_2 = "/Users/ordonez4/Documents/test_module_2"
+    module_name_2 = "CMECTEST_2"
+    config_list_2 = ["test2", "test3"]
+    setup_test_module(module_name_2, module_path_2, config_list_2)
+
+    # Test the 4 cmec-driver commands
     print("\n\n********************")
     print("Register test module")
     print("********************\n\n")
-    test_register(module_path)
+    test_register(module_path_1)
+    test_register(module_path_2)
 
     print("\n\n************")
     print("List modules")
@@ -126,16 +136,21 @@ if __name__ == "__main__":
     print("\n\n***************")
     print("Run test module")
     print("***************\n\n")
-    test_run(module_name, obs=True)
+    # Test just one module
+    test_run(module_name_1)
+    # Test running two modules at once
+    module_run = module_name_1 + " " + module_name_2
+    test_run(module_run, obs=True)
     print("\nModule output file:")
-    if len(config_list) == 1:
-        os.system("cat ../output/" + module_name + "/weighted_mean.json")
+    if len(config_list_1) == 1:
+        os.system("cat ../output/" + module_name_1 + "/weighted_mean.json")
     else:
-        os.system("cat ../output/" + module_name + "/" + config_list[0] + "/weighted_mean.json")
+        os.system("cat ../output/" + module_name_1 + "/" + config_list_1[0] + "/weighted_mean.json")
 
     print("\n\n**********************")
     print("Unregister test module")
     print("**********************\n\n")
-    test_unregister(module_name)
+    test_unregister(module_name_1)
+    test_unregister(module_name_2)
     print("\n\n")
 
