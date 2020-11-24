@@ -4,6 +4,9 @@ Generates the contents, settings, and driver files for a fake module.
 Runs the cmec-driver commands for the fake module to check basic 
 functionality.
 
+The fake module calls on calculate_weighted_mean.py to do a small 
+calculation.
+
 Todo:
 Test errors - no driver files, no contents, no settings, etc
 """
