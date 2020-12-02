@@ -5,8 +5,8 @@
 ///	\version June 19, 2020
 ///
 ///	<remarks>
-///		Copyright (c) 2020 Paul Ullrich 
-///	
+///		Copyright (c) 2020 Paul Ullrich
+///
 ///		Distributed under the BSD 3-Clause License.
 ///		(See accompanying file LICENSE)
 ///	</remarks>
@@ -84,7 +84,7 @@ std::string ParseCommandLine(
 				continue;
 			}
 			std::string strFlag = argv[c] + 1;
-			
+
 			CommandLineFlagSpec::const_iterator iterSpec = spec.find(strFlag);
 			if (iterSpec == spec.end()) {
 				return std::string("Error: Invalid flag \"") + strFlag + std::string("\"");
@@ -211,7 +211,7 @@ public:
 
 			// Create the CMEC library
 			printf("CMEC library not found; creating new library\n");
-			
+
 			// If the library does not exist, create it
 			std::ofstream oflib(m_path.str());
 			if (!oflib.is_open()) {
@@ -662,7 +662,7 @@ public:
 				m_path.str().c_str());
 			return false;
 		}
-	
+
 		nlohmann::json jmodule = *itm;
 		auto itmn = jmodule.find("name");
 		if (itmn == jmodule.end()) {
@@ -833,7 +833,8 @@ int cmec_register(
 		printf("Validating %s\n", g_szCMECSettingsName);
 
 		CMECModuleSettings cmecsettings;
-		cmecsettings.ReadFromFile(pathModule);
+		filesystem::path pathSettings = pathModule / filesystem::path(g_szCMECSettingsName);
+		cmecsettings.ReadFromFile(pathSettings);
 
 		strName = cmecsettings.GetName();
 
@@ -1295,7 +1296,7 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 	}
- 
+
 	// Execute module(s)
 	if (strCommand == "run") {
 		if (vecArg.size() >= 4) {
@@ -1337,6 +1338,5 @@ int main(int argc, char **argv) {
 
 	return 0;
 }
- 
-///////////////////////////////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////////////////////////////////
