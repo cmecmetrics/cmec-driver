@@ -9,6 +9,6 @@ Make any desired changes to the fake modules in the main method. The test module
 `python cmec-test.py`
 
 ## Outputs
-Check cmec-driver/test/output/[fake module name] for test outputs.
+The script will create a model, obs, and output folder, along with folders for each of the test modules. Check cmec-driver/test/output/[fake module name] for test metric outputs.
 
 
