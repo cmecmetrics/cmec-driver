@@ -24,7 +24,7 @@ cmec-driver run \<obs dir\> \<model dir\> \<working dir\> \<list of modules\> ..
 - Execute the specified list of modules on the provided observational data, model data, and working data.
 
 ## cmec-driver python
-A python version of the driver can be found under /src.
+A python version of the driver can be found under /src. The driver only requires packages from the python standard library. The test module (test/cmec-test.py) requires numpy and xarray.
 
 Usage is similar to the original C++ cmec-driver. From the cmec-driver directory:
 
