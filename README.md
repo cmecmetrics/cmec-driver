@@ -23,3 +23,16 @@ cmec-driver list [all]
 cmec-driver run <obs dir> <model dir> <working dir> <list of modules> ...
 - Execute the specified list of modules on the provided observational data, model data, and working data.
 
+## cmec-driver python
+A python version of the driver can be found under /src.
+
+Usage is similar to the original C++ cmec-driver. From the cmec-driver directory:
+
+python src/cmec-driver.py register <module dir>
+
+python src/cmec-driver.py unregister <module name>
+
+python src/cmec-driver.py list (-all)
+
+python src/cmec-driver.py run -obs <obs dir> <model dir> <working dir> <list of modules>
+- The -obs directory is optional but other directories are required.
