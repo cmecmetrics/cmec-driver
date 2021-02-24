@@ -24,15 +24,19 @@ cmec-driver run \<obs dir\> \<model dir\> \<working dir\> \<list of modules\> ..
 - Execute the specified list of modules on the provided observational data, model data, and working data.
 
 ## cmec-driver python
-A python version of the driver can be found under /src. The driver only requires packages from the python standard library. The test module (test/cmec-test.py) requires numpy and xarray.
+A python version of the driver is available. The driver only requires packages from the python standard library. The test module (test/cmec-test.py) requires numpy and xarray.
 
 Usage is similar to the original C++ cmec-driver. From the cmec-driver directory:
 
-python src/cmec-driver.py register \<module dir\>
+python cmec-driver.py register \<module dir\>
 
-python src/cmec-driver.py unregister \<module name\>
+python cmec-driver.py unregister \<module name\>
 
-python src/cmec-driver.py list (-all)
+python cmec-driver.py list (-all)
 
-python src/cmec-driver.py run -obs \<obs dir\> \<model dir\> \<working dir\> \<list of modules\>
+python cmec-driver.py run -obs \<obs dir\> \<model dir\> \<working dir\> \<list of modules\>
 - The -obs directory is optional but other directories are required.
+
+Some modules allow settings to be modified. These settings can be changed in config/cmec.json.
+
+For developers: default user settings should be provided in settings.py under the top-level key "default_parameters". Modules should load these settings from $CMEC_CONFIG_DIR/cmec.json.
