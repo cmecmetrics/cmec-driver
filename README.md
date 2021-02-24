@@ -37,6 +37,6 @@ python cmec-driver.py list (-all)
 python cmec-driver.py run -obs \<obs dir\> \<model dir\> \<working dir\> \<list of modules\>
 - The -obs directory is optional but other directories are required.
 
-Some modules allow settings to be modified. These settings can be changed in config/cmec.json.
+Some modules allow settings to be modified. These settings can be changed in config/cmec.json after the module is registered.
 
 For developers: default user settings should be provided in settings.py under the top-level key "default_parameters". Modules should load these settings from $CMEC_CONFIG_DIR/cmec.json.
