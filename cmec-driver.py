@@ -267,17 +267,20 @@ class CMECModuleSettings():
 
         # load existing cmec config or create new config
         if config_file.exists():
-            with open(config_file, "r") as cfile:
-                all_settings = json.load(cfile)
+            try:
+                with open(config_file, "r") as cfile:
+                    all_settings = json.load(cfile)
+            except JSONDecodeError:
+                print("Could not load config/cmec.json. Rewriting file.")
+                all_settings = module_settings
             # check that config isn't empty
             if isinstance(all_settings, dict):
                 all_settings.update(module_settings)
             else:
                 all_settings = module_settings
         else:
-            # create config if it doesn't exist
+            # initialize settings
             all_settings = module_settings
-            config_file.mkdir(parents=True)
         with open(config_file, "w") as cfile:
             json.dump(all_settings, cfile, indent=4)
 
@@ -286,10 +289,14 @@ class CMECModuleSettings():
         if module_name != '':
             config_name = module_name + '/' + config_name
         if config_file.exists():
-            with open(config_file,"r") as cfile:
-                all_settings = json.load(cfile)
+            try:
+                with open(config_file,"r") as cfile:
+                    all_settings = json.load(cfile)
                 if isinstance(all_settings, dict):
                     all_settings.pop(config_name, None)
+            except JSONDecodeError:
+                print("Could not load config/cmec.json. Rewriting file.")
+                all_settings = {}
             with open(config_file, "w") as cfile:
                 json.dump(all_settings, cfile, indent=4)
 
