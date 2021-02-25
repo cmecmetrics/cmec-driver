@@ -730,7 +730,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         env_scripts.append(path_script)
         print(str(path_script))
         with open(path_script, "w") as script:
-            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\n%s" % (module_path, obspath, modpath, path_working_dir, config_dir, driver))
+            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\n%s" % (module_path.resolve(), obspath.resolve(), modpath.resolve(), path_working_dir.resolve(), config_dir.resolve(), driver))
         os.system("chmod u+x " + str(path_script))
 
     # Execute command scripts

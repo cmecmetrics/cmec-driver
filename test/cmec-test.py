@@ -47,6 +47,7 @@ class setup_test_module():
         settings["settings"]["driver"] = config + "_driver.sh"
         settings["settings"]["name"] = config
         settings["settings"]["long_name"] = "CMEC test case " + config
+        settings["default_parameters"] = {"default1": 1}
 
         if multiple_configs:
             filepath = Path(module_path) / (config + "_settings.json")
