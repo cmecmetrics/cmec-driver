@@ -270,9 +270,13 @@ class CMECModuleSettings():
             try:
                 with open(config_file, "r") as cfile:
                     all_settings = json.load(cfile)
-            except JSONDecodeError:
-                print("Could not load config/cmec.json. Rewriting file.")
-                all_settings = module_settings
+            except:
+                rewrite = user_prompt("Could not load config/cmec.json. File might not be valid JSON. Overwrite?")
+                if rewrite:
+                    all_settings = module_settings
+                else:
+                    print("Skip writing user defaults to cmec.json")
+                    return
             # check that config isn't empty
             if isinstance(all_settings, dict):
                 all_settings.update(module_settings)
@@ -292,11 +296,15 @@ class CMECModuleSettings():
             try:
                 with open(config_file,"r") as cfile:
                     all_settings = json.load(cfile)
-                if isinstance(all_settings, dict):
-                    all_settings.pop(config_name, None)
-            except JSONDecodeError:
-                print("Could not load config/cmec.json. Rewriting file.")
-                all_settings = {}
+            except:
+                rewrite = user_prompt("Could not load config/cmec.json. File might not be valid JSON. Overwrite?")
+                if rewrite:
+                    all_settings = {}
+                else:
+                    print("Skipping config/cmec.json clean up")
+                    return
+            if isinstance(all_settings, dict):
+                all_settings.pop(config_name, None)
             with open(config_file, "w") as cfile:
                 json.dump(all_settings, cfile, indent=4)
 
