@@ -297,12 +297,8 @@ class CMECModuleSettings():
                 with open(config_file,"r") as cfile:
                     all_settings = json.load(cfile)
             except:
-                rewrite = user_prompt("Could not load config/cmec.json. File might not be valid JSON. Overwrite?")
-                if rewrite:
-                    all_settings = {}
-                else:
-                    print("Skipping config/cmec.json clean up")
-                    return
+                print("Could not load config/cmec.json. File might not be valid JSON.\nSkipping cmec.json clean up")
+                return
             if isinstance(all_settings, dict):
                 all_settings.pop(config_name, None)
             with open(config_file, "w") as cfile:
