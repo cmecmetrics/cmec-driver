@@ -481,14 +481,14 @@ def cmec_register(module_dir, config_file):
         print("Validating " + cmec_settings_name)
         cmec_settings.ReadFromFile(module_dir / cmec_settings_name)
         str_name = cmec_settings.GetName()
-        print("Writing default settings to " + config_file)
+        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
         cmec_settings.CreateConfig(config_file)
 
     # or check if module contains a contents file
     elif cmec_toc.ExistsInmodule_path(module_dir):
         print("Validating " + cmec_toc_name)
         cmec_toc.ReadFrommodule_path(module_dir)
-        print("Writing default settings to " + str(config_file))
+        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
         cmec_toc.CreateConfig(config_file, module_dir)
 
         str_name = cmec_toc.getName()
