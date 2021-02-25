@@ -488,7 +488,7 @@ def cmec_register(module_dir, config_file):
     elif cmec_toc.ExistsInmodule_path(module_dir):
         print("Validating " + cmec_toc_name)
         cmec_toc.ReadFrommodule_path(module_dir)
-        print("Writing default settings to " + config_file)
+        print("Writing default settings to " + str(config_file))
         cmec_toc.CreateConfig(config_file, module_dir)
 
         str_name = cmec_toc.getName()
