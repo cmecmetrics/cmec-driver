@@ -275,7 +275,7 @@ class CMECModuleSettings():
                 if rewrite:
                     all_settings = module_settings
                 else:
-                    print("Skip writing user defaults to cmec.json")
+                    print("*** Skip writing default parameters. Warning: This may affect module performance. ***")
                     return
             # check that config isn't empty
             if isinstance(all_settings, dict):
@@ -481,13 +481,14 @@ def cmec_register(module_dir, config_file):
         print("Validating " + cmec_settings_name)
         cmec_settings.ReadFromFile(module_dir / cmec_settings_name)
         str_name = cmec_settings.GetName()
+        print("Writing default settings to " + config_file)
         cmec_settings.CreateConfig(config_file)
 
     # or check if module contains a contents file
     elif cmec_toc.ExistsInmodule_path(module_dir):
         print("Validating " + cmec_toc_name)
-
         cmec_toc.ReadFrommodule_path(module_dir)
+        print("Writing default settings to " + config_file)
         cmec_toc.CreateConfig(config_file, module_dir)
 
         str_name = cmec_toc.getName()
