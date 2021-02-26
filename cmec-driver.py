@@ -270,7 +270,7 @@ class CMECModuleSettings():
             try:
                 with open(config_file, "r") as cfile:
                     all_settings = json.load(cfile)
-            except:
+            except json.decoder.JSONDecodeError:
                 rewrite = user_prompt("Could not load config/cmec.json. File might not be valid JSON. Overwrite?")
                 if rewrite:
                     all_settings = module_settings
@@ -296,7 +296,7 @@ class CMECModuleSettings():
             try:
                 with open(config_file,"r") as cfile:
                     all_settings = json.load(cfile)
-            except:
+            except json.decoder.JSONDecodeError:
                 print("Could not load config/cmec.json. File might not be valid JSON.\nSkipping cmec.json clean up")
                 return
             if isinstance(all_settings, dict):
@@ -741,8 +741,16 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         path_script = path_working_dir / "cmec_run.bash"
         env_scripts.append(path_script)
         print(str(path_script))
+        # resolve paths for writing if they exist:
+        module_path_full = module_path.resolve()
+        modpath_full = modpath.resolve()
+        working_full = path_working_dir.resolve()
+        config_full = config_dir.resolve()
+        obspath_full = None
+        if obspath is not None:
+            obspath_full = obspath.resolve()
         with open(path_script, "w") as script:
-            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\n%s" % (module_path.resolve(), obspath.resolve(), modpath.resolve(), path_working_dir.resolve(), config_dir.resolve(), driver))
+            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, driver))
         os.system("chmod u+x " + str(path_script))
 
     # Execute command scripts
