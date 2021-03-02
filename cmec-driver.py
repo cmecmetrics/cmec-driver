@@ -38,7 +38,7 @@ import string
 import sys
 import os
 
-version = "20200731"
+version = "20210301"
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
