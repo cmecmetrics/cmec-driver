@@ -252,7 +252,7 @@ class CMECModuleSettings():
                 # also check type
 
     def CreateConfig(self, config_file, module_name=''):
-        """Adds module specific user settings to cmec config yaml"""
+        """Adds module specific user settings to cmec config json"""
         config_name = self.GetName()
         if module_name != '':
             config_name = module_name + '/' + config_name
@@ -418,7 +418,7 @@ class CMECModuleTOC():
         self.jcmec["contents"][config_name] = str(filepath)
 
     def CreateConfig(self, config_file, path_module):
-        """create module settings yaml for each configuration"""
+        """create module settings json for each configuration"""
         for item in self.jcontents:
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
