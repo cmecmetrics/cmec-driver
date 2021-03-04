@@ -47,6 +47,7 @@ class setup_test_module():
         settings["settings"]["driver"] = config + "_driver.sh"
         settings["settings"]["name"] = config
         settings["settings"]["long_name"] = "CMEC test case " + config
+        settings["default_parameters"] = {"default1": 1}
 
         if multiple_configs:
             filepath = Path(module_path) / (config + "_settings.json")
@@ -114,32 +115,31 @@ def setup_directories():
 
 def test_register(module_path):
     """Register test module."""
-    os.system("python ../src/cmec-driver.py register " + module_path)
+    os.system("python ../cmec-driver.py register " + module_path)
     print("\nCMEC Library:")
     os.system("cat ~/.cmeclibrary")
-
+    print("\nCMEC config:")
+    os.system("cat ../config/cmec.json")
 
 def test_unregister(module_name):
     """Unregister test module."""
-    os.system("python ../src/cmec-driver.py unregister " + module_name)
-
+    os.system("python ../cmec-driver.py unregister " + module_name)
 
 def test_list(listall=True):
     """List the registered modules."""
     if listall:
-        os.system("python ../src/cmec-driver.py list -all")
+        os.system("python ../cmec-driver.py list -all")
     else:
-        os.system("python ../src/cmec-driver.py list")
-
+        os.system("python ../cmec-driver.py list")
 
 def test_run(module_name, obs=True):
     """Run the test module."""
     if Path("../output/" + module_name).exists():
         os.system("rm -r ../output/" + module_name)
     if obs:
-        os.system("python ../src/cmec-driver.py run -obs obs model output " + module_name)
+        os.system("python ../cmec-driver.py run -obs obs model output " + module_name)
     else:
-        os.system("python ../src/cmec-driver.py run model output " + module_name)
+        os.system("python ../cmec-driver.py run model output " + module_name)
 
 
 if __name__ == "__main__":
