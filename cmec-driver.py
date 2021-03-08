@@ -670,7 +670,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 if str_configuration in ("", setting):
                     setting_path = cmec_toc.find(setting)
                     cmec_settings.ReadFromFile(setting_path)
-                    module_path_list.append(setting_path)
+                    module_path_list.append(setting_path.parents[0])
                     driver_script_list.append(module_path / cmec_settings.GetDriverScript())
                     working_dir_list.append(Path(cmec_toc.getName()) / Path(cmec_settings.GetName()))
                     config_found = True
@@ -742,7 +742,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         env_scripts.append(path_script)
         print(str(path_script))
         # resolve paths for writing if they exist:
-        module_path_full = module_path.resolve()
+        module_path_full = mPath.resolve()
         modpath_full = modpath.resolve()
         working_full = path_working_dir.resolve()
         config_full = config_dir.resolve()
