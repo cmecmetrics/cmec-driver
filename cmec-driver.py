@@ -4,6 +4,15 @@ CMEC driver
 Interface for running CMEC-compliant modules.
 
 Examples:
+    Add conda install information::
+
+    $ python cmec_driver.py setup -conda_root <path_to_conda>
+    $ python cmec_driver.py setup -conda_root ~/miniconda3
+
+    Remove conda install information::
+
+    $ python cmec_driver.py setup -remove_conda
+
     Registering a module::
 
     $ python cmec_driver.py register <module_directory_path>
@@ -151,7 +160,7 @@ class CMECLibrary():
         with open(self.path, "w") as outfile:
             json.dump(self.jlib, outfile)
 
-    def Insert(self,module_name, filepath):
+    def Insert(self, module_name, filepath):
         """Add a module to the library
 
         Args:
@@ -171,7 +180,7 @@ class CMECLibrary():
         self.map_module_path_list[module_name] = filepath
         self.jlib["modules"][module_name] = str(filepath)
 
-    def Remove(self,module_name):
+    def Remove(self, module_name):
         if module_name not in self.map_module_path_list:
             raise CMECError("Module " + module_name + " not found in library")
 
@@ -196,6 +205,15 @@ class CMECLibrary():
         """Get a list of the modules in the library"""
         return [*self.map_module_path_list]
 
+    def getCondaRoot(self):
+        """Return path to conda install"""
+        return self.jlib.get("conda_root",None)
+
+    def setCondaRoot(self, conda_root):
+        self.jlib["conda_root"] = conda_root
+
+    def clearCondaRoot(self):
+        self.jlib.pop("conda_root", None)
 
 class CMECModuleSettings():
     """Interface with module settings file"""
@@ -456,6 +474,30 @@ class CMECModuleTOC():
             return self.map_configs[setting]
         return False
 
+
+def cmec_setup(**kwargs):
+    """Set up conda environment.
+    Args:
+        **kwargs:
+            conda_root (str): path to conda installation directory
+            remove_conda (bool): to clear conda_root from library
+    """
+    print("Reading CMEC library")
+    lib = CMECLibrary()
+    lib.Read()
+
+    if "conda_root" in kwargs:
+        print("Validating conda install location")
+        if not Path(kwargs["conda_root"]).exists():
+            raise CMECError("Conda install location does not exist")
+        print("Setting conda root")
+        lib.setCondaRoot(kwargs["conda_root"])
+    if "remove_conda" in kwargs:
+        print("Clearing conda root")
+        lib.clearCondaRoot()
+
+    print("Writing CMEC library")
+    lib.Write()
 
 def cmec_register(module_dir, config_file):
     """Add a module to the cmec library.
@@ -749,8 +791,10 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         obspath_full = None
         if obspath is not None:
             obspath_full = obspath.resolve()
+        else:
+            obspath_full = "None"
         with open(path_script, "w") as script:
-            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, driver))
+            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\nexport CONDA_ROOT=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, lib.getCondaRoot(), driver))
         os.system("chmod u+x " + str(path_script))
 
     # Execute command scripts
@@ -769,8 +813,10 @@ if __name__ == "__main__":
         description="Process command line cmec-driver input")
     # Create subparsers for register, unregister, list, and run commands
     subparsers = parser.add_subparsers(
-        help="commands are 'register', 'unregister', 'run', 'list'",
+        help="commands are 'install', 'register', 'unregister', 'run', 'list'",
         dest="command")
+    parser_inst = subparsers.add_parser(
+        "setup", help="register conda installation directory")
     parser_reg = subparsers.add_parser(
         "register", help="add module to cmec library")
     parser_unreg = subparsers.add_parser(
@@ -780,9 +826,11 @@ if __name__ == "__main__":
     parser_run = subparsers.add_parser(
         "run", help="run chosen modules")
 
+    parser_inst.add_argument("-conda_root", type=str)
+    parser_inst.add_argument("-remove_conda",action="store_true", default=False)
     parser_reg.add_argument("modpath", type=str)
     parser_unreg.add_argument("module")
-    parser_list.add_argument("-all", action="store_true",default=False,
+    parser_list.add_argument("-all", action="store_true", default=False,
         help="list modules and configurations")
     parser_run.add_argument("-obs", default="", help="observations directory")
     parser_run.add_argument("model", help="model directory")
@@ -794,6 +842,13 @@ if __name__ == "__main__":
 
     # cmec config goes in cmec-driver/config folder
     config_file = Path(__file__).absolute().parents[0] / Path("config/cmec.json")
+
+    # Install
+    if args.command == "setup":
+        if args.conda_root:
+            cmec_setup(conda_root=args.conda_root)
+        if args.remove_conda:
+            cmec_setup(remove_conda=True)
 
     # Register
     if args.command == "register":
