@@ -6,8 +6,8 @@ Interface for running CMEC-compliant modules.
 Examples:
     Add conda install information::
 
-    $ python cmec_driver.py setup -conda_root <path_to_conda>
-    $ python cmec_driver.py setup -conda_root ~/miniconda3
+    $ python cmec_driver.py setup -conda_source <path_to_conda>
+    $ python cmec_driver.py setup -conda_source ~/miniconda3/etc/profile.d/conda.sh
 
     Remove conda install information::
 
@@ -47,7 +47,7 @@ import string
 import sys
 import os
 
-version = "20210301"
+version = "20210610"
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
@@ -207,16 +207,22 @@ class CMECLibrary():
 
     def getCondaRoot(self):
         """Return path to conda install"""
-        return self.jlib.get("conda_root",None)
+        return self.jlib.get("conda_source",None)
 
-    def setCondaRoot(self, conda_root):
-        self.jlib["conda_root"] = conda_root
+    def setCondaRoot(self, conda_source):
+        self.jlib["conda_source"] = conda_source
 
     def clearCondaRoot(self):
-        self.jlib.pop("conda_root", None)
+        self.jlib.pop("conda_source", None)
+
+    def setEnvRoot(self, env_dir):
+        self.jlib["conda_env_root"] = env_dir
+
+    def clearEnvRoot(self)
+        self.jlib.pop("conda_env_root")
 
 class CMECModuleSettings():
-    """Interface with module settings file"""
+    """Interface with module settings file."""
     def __init__(self):
         self.path = ""
         self.jsettings = {}
@@ -479,22 +485,29 @@ def cmec_setup(**kwargs):
     """Set up conda environment.
     Args:
         **kwargs:
-            conda_root (str): path to conda installation directory
-            remove_conda (bool): to clear conda_root from library
+            conda_source (str): path to conda installation directory
+            remove_conda (bool): to clear conda_source from library
     """
     print("Reading CMEC library")
     lib = CMECLibrary()
     lib.Read()
 
-    if "conda_root" in kwargs:
+    if "conda_source" in kwargs:
         print("Validating conda install location")
-        if not Path(kwargs["conda_root"]).exists():
+        if not Path(kwargs["conda_source"]).exists():
             raise CMECError("Conda install location does not exist")
         print("Setting conda root")
-        lib.setCondaRoot(kwargs["conda_root"])
+        lib.setCondaRoot(kwargs["conda_source"])
+    if "env_dir" in kwargs:
+        print("Validating environment directory")
+        if not Path(kwargs["env_dir"]).exists():
+            raise CMECError("Environment directory does not exist")
+        print("Setting environment root")
+        lib.setEnvRoot(kwargs["env_dir"])
     if "remove_conda" in kwargs:
-        print("Clearing conda root")
+        print("Clearing conda settings")
         lib.clearCondaRoot()
+        lib.clearEnvRoot()
 
     print("Writing CMEC library")
     lib.Write()
@@ -826,7 +839,8 @@ if __name__ == "__main__":
     parser_run = subparsers.add_parser(
         "run", help="run chosen modules")
 
-    parser_inst.add_argument("-conda_root", type=str)
+    parser_inst.add_argument("-conda_source", type=str)
+    parser_inst.add_argument("-env_loc", type=str)
     parser_inst.add_argument("-remove_conda",action="store_true", default=False)
     parser_reg.add_argument("modpath", type=str)
     parser_unreg.add_argument("module")
@@ -845,8 +859,10 @@ if __name__ == "__main__":
 
     # Install
     if args.command == "setup":
-        if args.conda_root:
-            cmec_setup(conda_root=args.conda_root)
+        if args.conda_source:
+            cmec_setup(conda_source=args.conda_source)
+        if args.env_loc:
+            cmec_setup(env_dir=args.env_loc)
         if args.remove_conda:
             cmec_setup(remove_conda=True)
 
