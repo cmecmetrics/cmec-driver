@@ -42,6 +42,7 @@ Todo:
 Add tests
 """
 from pathlib import Path
+import glob
 import json
 import string
 import sys
@@ -51,6 +52,7 @@ version = "20210301"
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
+cmec_settings_name_alt = "settings.jsonc"
 
 
 def user_prompt(question, default = "yes"):
@@ -96,29 +98,29 @@ class CMECLibrary():
         self.map_module_path_list = {}
         self.jlib = {"modules": {}, "cmec-driver": {}, "version": version}
 
-    def Clear(self):
+    def clear(self):
         self.path = ""
         self.map_module_path_list = {}
         self.jlib = {"modules": {}, "cmec-driver": {}, "version": version}
 
-    def InitializePath(self):
+    def initialize_path(self):
         """Get the path for the .cmeclibrary file"""
         homedir = Path.home()
 
         if homedir.exists():
             self.path = homedir / cmec_library_name
 
-    def Read(self):
+    def read(self):
         """Load the contents of the CMEC library.
 
         Loads the .cmeclibrary file as a json and checks that the
         contents and formatting match CMEC standards.
         """
         # Clear the library
-        self.Clear()
+        self.clear()
 
         # Initialize path
-        self.InitializePath()
+        self.initialize_path()
 
         # Load the library
         if not self.path.exists():
@@ -154,14 +156,14 @@ class CMECLibrary():
 
             self.map_module_path_list[key] = Path(self.jlib["modules"][key])
 
-    def Write(self):
-        self.InitializePath()
+    def write(self):
+        self.initialize_path()
 
         with open(self.path, "w") as outfile:
             json.dump(self.jlib, outfile)
 
-    def Insert(self, module_name, filepath):
-        """Add a module to the library
+    def insert(self, module_name, filepath):
+        """Add a module to the library.
 
         Args:
             module_name (str): name of module
@@ -180,7 +182,7 @@ class CMECLibrary():
         self.map_module_path_list[module_name] = filepath
         self.jlib["modules"][module_name] = str(filepath)
 
-    def Remove(self, module_name):
+    def remove(self, module_name):
         if module_name not in self.map_module_path_list:
             raise CMECError("Module " + module_name + " not found in library")
 
@@ -192,39 +194,48 @@ class CMECLibrary():
         self.jlib["modules"].pop(module_name)
 
     def size(self):
-        """Get the number of modules in the library"""
+        """Get the number of modules in the library."""
         return len(self.map_module_path_list)
 
     def find(self, strModule):
-        """Get the path to a specific module"""
+        """Get the path to a specific module."""
         if strModule in self.map_module_path_list:
             return self.map_module_path_list[strModule]
         return False
 
-    def getModuleList(self):
-        """Get a list of the modules in the library"""
+    def get_module_list(self):
+        """Get a list of the modules in the library."""
         return [*self.map_module_path_list]
 
-    def getCondaRoot(self):
-        """Return path to conda install"""
+    def get_conda_root(self):
+        """Return path to conda install."""
         return self.jlib.get("conda_root",None)
 
-    def setCondaRoot(self, conda_root):
+    def set_conda_root(self, conda_root):
         self.jlib["conda_root"] = conda_root
 
-    def clearCondaRoot(self):
+    def clear_conda_root(self):
         self.jlib.pop("conda_root", None)
 
+    def is_pod(self, strModule):
+        """Return true if module is part of MDTF diagnostics package."""
+        filepath = self.find(strModule)
+        if filepath is not False:
+            if "diagnostics" in filepath.parents[0].name:
+                if "MDTF-diagnostics" in filepath.parents[1].name:
+                    return True
+        return False
+
 class CMECModuleSettings():
-    """Interface with module settings file"""
+    """Interface with module settings file."""
     def __init__(self):
         self.path = ""
         self.jsettings = {}
 
-    def ExistsInmodule_path(self, filepath):
+    def exists_in_module_path(self, filepath):
         """Check if a settings file exists for a module.
 
-        Returns True if settings.json found in path, otherwise False.
+        Returns settings path if settings.json found in path, otherwise False.
 
         Args:
             filepath (str or Path): path for the module directory
@@ -233,20 +244,26 @@ class CMECModuleSettings():
             filepath = Path(filepath)
 
         path_settings = filepath / cmec_settings_name
+        if not path_settings.exists():
+            # try alternate jsonc name
+            path_settings = filepath / cmec_settings_name_alt
+            if not path_settings.exists():
+                # no settings
+                path_settings = False
 
-        return path_settings.exists()
+        return path_settings
 
-    def Clear(self):
+    def clear(self):
         self.path = ""
         self.jsettings = {}
 
-    def ReadFromFile(self, path_settings):
+    def read_from_file(self, path_settings):
         """Read the CMEC module contents file.
 
         Loads the contents file as a json and checks that the contents
         match CMEC standards.
         """
-        self.Clear()
+        self.clear()
 
         if not isinstance(path_settings, Path):
             path_settings = Path(path_settings)
@@ -254,24 +271,28 @@ class CMECModuleSettings():
         self.path = path_settings
 
         with open(self.path, "r") as cmec_json:
-            self.jsettings = json.load(cmec_json)
+            # Settings could be a JSONC
+            self.jsettings = json.loads(
+                "\n".join(row for row in cmec_json if not row.lstrip().startswith("//")))
 
-        for key in ["settings", "obslist"]:
-            if key not in self.jsettings:
-                raise CMECError(
-                    "Malformed CMEC settings file "
-                    + str(path_settings) + ": missing key " + key)
+        if "settings" not in self.jsettings:
+            raise CMECError(
+                "Malformed CMEC settings file "
+                + str(path_settings) + ": missing key 'settings'")
 
-        for key in ["name", "long_name", "driver"]:
+        if "driver" not in self.jsettings["settings"]:
+            raise CMECError(
+                "Malformed CMEC settings file "
+                + str(path_settings) + ": missing key 'settings': 'driver'd")
+
+        for key in ["name","long_name"]:
             if key not in self.jsettings["settings"]:
-                raise CMECError(
-                    "Malformed CMEC settings file "
-                    + str(path_settings) + ": missing key settings:" + key)
-                # also check type
+                # Replace missing names with driver script name
+                self.jsettings["settings"][key] = Path(self.jsettings["settings"]["driver"]).stem
 
-    def CreateConfig(self, config_file, module_name=''):
+    def create_config(self, config_file, module_name=''):
         """Adds module specific user settings to cmec config json"""
-        config_name = self.GetName()
+        config_name = self.get_name()
         if module_name != '':
             config_name = module_name + '/' + config_name
 
@@ -306,8 +327,8 @@ class CMECModuleSettings():
         with open(config_file, "w") as cfile:
             json.dump(all_settings, cfile, indent=4)
 
-    def RemoveConfig(self, config_file, module_name=''):
-        config_name = self.GetName()
+    def remove_config(self, config_file, module_name=''):
+        config_name = self.get_name()
         if module_name != '':
             config_name = module_name + '/' + config_name
         if config_file.exists():
@@ -322,17 +343,27 @@ class CMECModuleSettings():
             with open(config_file, "w") as cfile:
                 json.dump(all_settings, cfile, indent=4)
 
-    def GetName(self):
+    def get_name(self):
         """Returns the module name."""
-        return self.jsettings["settings"]["name"]
+        if "name" in self.jsettings["settings"]:
+            name=self.jsettings["settings"]["name"]
+        else:
+            name=self.jsettings["settings"]["long_name"]
+        return name
 
-    def GetLongName(self):
+    def get_long_name(self):
         """Returns module long name."""
         return self.jsettings["settings"]["long_name"]
 
-    def GetDriverScript(self):
+    def get_driver_script(self):
         """Returns driver file name."""
         return self.jsettings["settings"]["driver"]
+
+    def get_setting(self,key):
+        """Returns setting from settings dict."""
+        if key in self.jsettings:
+            return self.jsettings[key]
+        return {}
 
 
 class CMECModuleTOC():
@@ -343,8 +374,8 @@ class CMECModuleTOC():
         self.jcmec = {}
         self.jcontents = {}
 
-    def ExistsInmodule_path(self, path_module):
-        """Check if contents file exists for module
+    def exists_in_module_path(self, path_module):
+        """Check if contents file exists for module.
 
         Returns True if contents.json found in module directory.
         Otherwise, returns False.
@@ -359,14 +390,14 @@ class CMECModuleTOC():
 
         return path_settings.exists()
 
-    def Clear(self):
+    def clear(self):
         self.path = ""
         self.map_configs = {}
         self.jcmec = {}
         self.jcontents = {}
 
-    def ReadFrommodule_path(self, path_module):
-        """Read the CMEC module contents file
+    def read_from_module_path(self, path_module):
+        """Read the CMEC module contents file.
 
         Loads the contents.json for the specified module and
         checks that the json matches the CMEC standards.
@@ -375,7 +406,7 @@ class CMECModuleTOC():
             path_module (str or Path): path to the module directory
         """
         # Clear and get path
-        self.Clear()
+        self.clear()
 
         if not isinstance(path_module, Path):
             path_module = Path(path_module)
@@ -407,16 +438,16 @@ class CMECModuleTOC():
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
                 path_settings = path_module / item
-                cmec_settings.ReadFromFile(path_settings)
-                self.map_configs[cmec_settings.GetName()] = path_settings
+                cmec_settings.read_from_file(path_settings)
+                self.map_configs[cmec_settings.get_name()] = path_settings
 
             else:
                 print(
                     "Malformed CMEC Library file: an entry of the"
                     + "'contents' array is not of type string")
 
-    def Insert(self, config_name, filepath):
-        """Add a configuration
+    def insert(self, config_name, filepath):
+        """Add a configuration.
 
         Args:
             config_name (str): name of configuration
@@ -430,49 +461,64 @@ class CMECModuleTOC():
         if not isinstance(filepath, Path):
             filepath = Path(filepath)
 
-        # Insert module
+        # insert module
         self.map_configs[config_name] = filepath
 
         self.jcmec["contents"][config_name] = str(filepath)
 
-    def CreateConfig(self, config_file, path_module):
-        """create module settings json for each configuration"""
+    def create_config(self, config_file, path_module):
+        """Create module settings json for each configuration."""
         for item in self.jcontents:
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
                 path_settings = path_module / item
-                cmec_settings.ReadFromFile(path_settings)
-                cmec_settings.CreateConfig(config_file, self.getName())
+                cmec_settings.read_from_file(path_settings)
+                cmec_settings.create_config(config_file, self.get_name())
 
-    def RemoveConfig(self, config_file, path_module):
+    def remove_config(self, config_file, path_module):
         for item in self.jcontents:
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
                 path_settings = path_module/item
-                cmec_settings.ReadFromFile(path_settings)
-                cmec_settings.RemoveConfig(config_file, self.getName())
+                cmec_settings.read_from_file(path_settings)
+                cmec_settings.remove_config(config_file, self.get_name())
 
-    def getName(self):
-        """Return the name of the module"""
+    def get_name(self):
+        """Return the name of the module."""
         return self.jcmec["module"]["name"]
 
-    def getLongName(self):
-        """Return the long name of the module"""
+    def get_long_name(self):
+        """Return the long name of the module."""
         return self.jcmec["module"]["long_name"]
 
     def size(self):
-        """Return the number of configs"""
+        """Return the number of configs."""
         return len(self.map_configs)
 
-    def configList(self):
-        """Return the list of configs"""
+    def config_list(self):
+        """Return the list of configs."""
         return [*self.map_configs]
 
     def find(self, setting):
-        """Return the setting file path"""
+        """Return the setting file path."""
         if setting in self.map_configs:
             return self.map_configs[setting]
         return False
+
+class CMECConfig():
+    """Access CMEC config file cmec.json"""
+    def __init__(self):
+        self.path = Path(__file__).absolute().parents[0] / Path("config/cmec.json")
+
+    def load(self, strModule):
+        try:
+            with open(self.path, "r") as cfile:
+                all_settings = json.load(cfile)
+        except json.decoder.JSONDecodeError:
+            raise CMECError("Could not load config/cmec.json. File might not be valid JSON")
+
+        self.settings = all_settings[strModule]
+        return self.settings
 
 
 def cmec_setup(**kwargs):
@@ -484,20 +530,20 @@ def cmec_setup(**kwargs):
     """
     print("Reading CMEC library")
     lib = CMECLibrary()
-    lib.Read()
+    lib.read()
 
     if "conda_root" in kwargs:
         print("Validating conda install location")
         if not Path(kwargs["conda_root"]).exists():
             raise CMECError("Conda install location does not exist")
         print("Setting conda root")
-        lib.setCondaRoot(kwargs["conda_root"])
+        lib.set_conda_root(kwargs["conda_root"])
     if "remove_conda" in kwargs:
         print("Clearing conda root")
-        lib.clearCondaRoot()
+        lib.clear_conda_root()
 
     print("Writing CMEC library")
-    lib.Write()
+    lib.write()
 
 def cmec_register(module_dir, config_file):
     """Add a module to the cmec library.
@@ -515,27 +561,28 @@ def cmec_register(module_dir, config_file):
     cmec_toc = CMECModuleTOC()
 
     # check if module contains a settings file
-    if cmec_settings.ExistsInmodule_path(module_dir):
+    tmp_settings_name = cmec_settings.exists_in_module_path(module_dir)
+    if tmp_settings_name:
         print("Validating " + cmec_settings_name)
-        cmec_settings.ReadFromFile(module_dir / cmec_settings_name)
-        str_name = cmec_settings.GetName()
+        cmec_settings.read_from_file(module_dir / tmp_settings_name)
+        str_name = cmec_settings.get_name()
         print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
-        cmec_settings.CreateConfig(config_file)
+        cmec_settings.create_config(config_file)
 
     # or check if module contains a contents file
-    elif cmec_toc.ExistsInmodule_path(module_dir):
+    elif cmec_toc.exists_in_module_path(module_dir):
         print("Validating " + cmec_toc_name)
-        cmec_toc.ReadFrommodule_path(module_dir)
+        cmec_toc.read_from_module_path(module_dir)
         print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
-        cmec_toc.CreateConfig(config_file, module_dir)
+        cmec_toc.create_config(config_file, module_dir)
 
-        str_name = cmec_toc.getName()
-        str_long_name = cmec_toc.getLongName()
+        str_name = cmec_toc.get_name()
+        str_long_name = cmec_toc.get_long_name()
 
         print("Module " + str_name + " " + str_long_name)
         print("Contains " + str(cmec_toc.size()) + " configurations")
         print("------------------------------------------------------------")
-        for item in cmec_toc.configList():
+        for item in cmec_toc.config_list():
             print(str_name + "/" + item)
         print("------------------------------------------------------------")
 
@@ -547,13 +594,13 @@ def cmec_register(module_dir, config_file):
     # Add to CMEC library
     print("Reading CMEC library")
     lib = CMECLibrary()
-    lib.Read()
+    lib.read()
 
     print("Adding new module to library")
-    lib.Insert(str_name, module_dir)
+    lib.insert(str_name, module_dir)
 
     print("Writing CMEC library")
-    lib.Write()
+    lib.write()
 
 
 def cmec_unregister(module_name, config_file):
@@ -564,24 +611,25 @@ def cmec_unregister(module_name, config_file):
     """
     print("Reading the CMEC library")
     lib = CMECLibrary()
-    lib.Read()
+    lib.read()
 
     print("Removing configuration")
     module_dir = lib.find(module_name)
     cmec_settings = CMECModuleSettings()
     cmec_toc = CMECModuleTOC()
-    if cmec_settings.ExistsInmodule_path(module_dir):
-        cmec_settings.ReadFromFile(module_dir / cmec_settings_name)
-        cmec_settings.RemoveConfig(config_file)
-    elif cmec_toc.ExistsInmodule_path(module_dir):
-        cmec_toc.ReadFrommodule_path(module_dir)
-        cmec_toc.RemoveConfig(config_file, module_dir)
+    tmp_settings_name = cmec_settings.exists_in_module_path(module_dir)
+    if tmp_settings_name:
+        cmec_settings.read_from_file(module_dir / tmp_settings_name)
+        cmec_settings.remove_config(config_file)
+    elif cmec_toc.exists_in_module_path(module_dir):
+        cmec_toc.read_from_module_path(module_dir)
+        cmec_toc.remove_config(config_file, module_dir)
 
     print("Removing module")
-    lib.Remove(module_name)
+    lib.remove(module_name)
 
     print("Writing CMEC library")
-    lib.Write()
+    lib.write()
 
 def cmec_list(listAll):
     """List modules in cmec library.
@@ -591,7 +639,7 @@ def cmec_list(listAll):
     """
     print("Reading CMEC library")
     lib = CMECLibrary()
-    lib.Read()
+    lib.read()
 
     # Check for size zero library
     if lib.size() == 0:
@@ -602,16 +650,16 @@ def cmec_list(listAll):
     # List modules
     print("CMEC library contains " + str(lib.size()) + " modules")
     print("------------------------------------------------------------")
-    for module in lib.getModuleList():
+    for module in lib.get_module_list():
         module_dir = lib.find(module)
-        if cmec_toc.ExistsInmodule_path(module_dir):
-            cmec_toc.ReadFrommodule_path(module_dir)
+        if cmec_toc.exists_in_module_path(module_dir):
+            cmec_toc.read_from_module_path(module_dir)
             print(
                 " " + module + " [" + str(cmec_toc.size())
                 + " configurations]" )
 
             if listAll:
-                for config in cmec_toc.configList():
+                for config in cmec_toc.config_list():
                     print("    " + module + "/" + config)
         else:
             print(" " + module + " [1 configuration]")
@@ -658,7 +706,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     # Load the CMEC library
     print("Reading CMEC library")
     lib = CMECLibrary()
-    lib.Read()
+    lib.read()
 
     # Build dirver script list
     print("Identifying drivers")
@@ -687,34 +735,38 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 "Module " + str_parent_module
                 + " not found in CMEC library")
 
+        # Check if module is pod
+        mod_is_pod = lib.is_pod(module)
+
         # Check if module contains a settings file
         cmec_settings = CMECModuleSettings()
         cmec_toc = CMECModuleTOC()
 
-        if cmec_settings.ExistsInmodule_path(module_path):
+        tmp_settings_name = cmec_settings.exists_in_module_path(module_path)
+        if tmp_settings_name:
             if str_configuration != "":
                 raise CMECError(
                     "Module " + str_parent_module
                     + " only contains a single configration")
 
-            cmec_settings.ReadFromFile(module_path / cmec_settings_name)
+            cmec_settings.read_from_file(module_path / tmp_settings_name)
             module_path_list.append(module_path)
-            driver_script_list.append(module_path / cmec_settings.GetDriverScript())
-            working_dir_list.append(Path(cmec_settings.GetName()))
+            driver_script_list.append(module_path / cmec_settings.get_driver_script())
+            working_dir_list.append(Path(cmec_settings.get_name()))
 
         # Check if module contains a contents file
-        elif cmec_toc.ExistsInmodule_path(module_path):
-            cmec_toc.ReadFrommodule_path(module_path)
-            settings = cmec_toc.configList()
+        elif cmec_toc.exists_in_module_path(module_path):
+            cmec_toc.read_from_module_path(module_path)
+            settings = cmec_toc.config_list()
             config_found = False
 
             for setting in settings:
                 if str_configuration in ("", setting):
                     setting_path = cmec_toc.find(setting)
-                    cmec_settings.ReadFromFile(setting_path)
+                    cmec_settings.read_from_file(setting_path)
                     module_path_list.append(setting_path.parents[0])
-                    driver_script_list.append(module_path / cmec_settings.GetDriverScript())
-                    working_dir_list.append(Path(cmec_toc.getName()) / Path(cmec_settings.GetName()))
+                    driver_script_list.append(module_path / cmec_settings.get_driver_script())
+                    working_dir_list.append(Path(cmec_toc.get_name()) / Path(cmec_settings.get_name()))
                     config_found = True
 
             if ((str_configuration != "") and not config_found):
@@ -727,6 +779,12 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 + " with path " + str(module_path)
                 + " does not contain " + cmec_settings_name
                 + " or " + cmec_toc_name)
+
+    if mod_is_pod:
+        pod_varlist = cmec_settings.get_setting("varlist")
+        pod_frequency = cmec_settings.get_setting("data")["frequency"]
+        cmec_config = CMECConfig()
+        pod_settings = cmec_config.load(module)
 
     assert len(module_path_list) == len(driver_script_list)
     assert len(module_path_list) == len(working_dir_list)
@@ -747,6 +805,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     print("------------------------------------------------------------")
 
     # Environment variables
+    # If MDTF POD, read env variables from a few different files.
     print("The following environment variables will be set:")
     print("------------------------------------------------------------")
     print("CMEC_OBS_DATA=" + str(obspath))
@@ -754,6 +813,8 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     print("CMEC_WK_DIR=" + str(workpath) + "/$MODULE_NAME")
     print("CMEC_CODE_DIR=$MODULE_PATH")
     print("CMEC_CONFIG_DIR=" + str(config_dir))
+    if mod_is_pod:
+        print("along with additional MDTF POD environment variables")
     print("------------------------------------------------------------")
 
     # Create output directories
@@ -793,8 +854,34 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             obspath_full = obspath.resolve()
         else:
             obspath_full = "None"
+        script_lines = []
         with open(path_script, "w") as script:
-            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\nexport CONDA_ROOT=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, lib.getCondaRoot(), driver))
+            script_lines.append("#!/bin/bash\n")
+            script_lines.append("export CMEC_CODE_DIR=%s\n" % module_path_full)
+            script_lines.append("export CMEC_OBS_DATA=%s\n" % obspath_full)
+            script_lines.append("export CMEC_MODEL_DATA=%s\n" % modpath_full)
+            script_lines.append("export DATADIR=%s\n" % modpath_full)
+            script_lines.append("export CMEC_WK_DIR=%s\n" % working_full)
+            script_lines.append("export CMEC_CONFIG_DIR=%s\n" % config_full)
+            script_lines.append("export CONDA_ROOT=%s\n" % lib.get_conda_root())
+            if mod_is_pod:
+                # write pod env
+                script_lines.append("export OBS_DATA=%s\n" % obspath_full)
+                script_lines.append("export DATADIR=%s\n" % modpath_full)
+                script_lines.append("export POD_HOME=%s\n" % module_path_full)
+                for item in pod_settings:
+                    script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
+                for varname in pod_varlist:
+                    env_var = varname.upper()+"_FILE"
+                    env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], varname, pod_frequency))
+                    env_path = modpath_full / Path(pod_settings["CASENAME"]) / Path(pod_frequency) / env_basename
+                    script_lines.append("export %s=%s\n" % (env_var,env_path))
+                script_lines.append("source /Users/ordonez4/miniconda3/etc/profile.d/conda.sh\nconda activate _MDTF_NCL_base\n")
+            if driver.suffix == ".py":
+                script_lines.append("python %s\n" % driver)
+            else:
+                script_lines.append("%s\n" % driver)
+            script.writelines(script_lines)
         os.system("chmod u+x " + str(path_script))
 
     # Execute command scripts
