@@ -215,10 +215,13 @@ class CMECLibrary():
     def clearCondaRoot(self):
         self.jlib.pop("conda_source", None)
 
+    def getEnvRoot(self):
+        return self.jlib.get("conda_env_root",None)
+
     def setEnvRoot(self, env_dir):
         self.jlib["conda_env_root"] = env_dir
 
-    def clearEnvRoot(self)
+    def clearEnvRoot(self):
         self.jlib.pop("conda_env_root")
 
 class CMECModuleSettings():
@@ -481,7 +484,7 @@ class CMECModuleTOC():
         return False
 
 
-def cmec_setup(**kwargs):
+def cmec_setup(conda_source=None,env_dir=None,remove_conda=False):
     """Set up conda environment.
     Args:
         **kwargs:
@@ -492,19 +495,19 @@ def cmec_setup(**kwargs):
     lib = CMECLibrary()
     lib.Read()
 
-    if "conda_source" in kwargs:
+    if conda_source is not None:
         print("Validating conda install location")
-        if not Path(kwargs["conda_source"]).exists():
+        if not Path(conda_source).exists():
             raise CMECError("Conda install location does not exist")
         print("Setting conda root")
-        lib.setCondaRoot(kwargs["conda_source"])
-    if "env_dir" in kwargs:
+        lib.setCondaRoot(conda_source)
+    if env_dir is not None:
         print("Validating environment directory")
-        if not Path(kwargs["env_dir"]).exists():
+        if not Path(env_dir).exists():
             raise CMECError("Environment directory does not exist")
         print("Setting environment root")
-        lib.setEnvRoot(kwargs["env_dir"])
-    if "remove_conda" in kwargs:
+        lib.setEnvRoot(env_dir)
+    if remove_conda:
         print("Clearing conda settings")
         lib.clearCondaRoot()
         lib.clearEnvRoot()
@@ -807,7 +810,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         else:
             obspath_full = "None"
         with open(path_script, "w") as script:
-            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\nexport CONDA_ROOT=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, lib.getCondaRoot(), driver))
+            script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\nexport CONDA_SOURCE=%s\nexport CONDA_ENV_ROOT=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, lib.getCondaRoot(), lib.getEnvRoot(), driver))
         os.system("chmod u+x " + str(path_script))
 
     # Execute command scripts
@@ -839,9 +842,9 @@ if __name__ == "__main__":
     parser_run = subparsers.add_parser(
         "run", help="run chosen modules")
 
-    parser_inst.add_argument("-conda_source", type=str)
-    parser_inst.add_argument("-env_loc", type=str)
-    parser_inst.add_argument("-remove_conda",action="store_true", default=False)
+    parser_inst.add_argument("-conda_source", default=None, type=str)
+    parser_inst.add_argument("-env_root", default=None, type=str)
+    parser_inst.add_argument("-remove_conda", action="store_true", default=False)
     parser_reg.add_argument("modpath", type=str)
     parser_unreg.add_argument("module")
     parser_list.add_argument("-all", action="store_true", default=False,
@@ -859,12 +862,10 @@ if __name__ == "__main__":
 
     # Install
     if args.command == "setup":
-        if args.conda_source:
-            cmec_setup(conda_source=args.conda_source)
-        if args.env_loc:
-            cmec_setup(env_dir=args.env_loc)
-        if args.remove_conda:
-            cmec_setup(remove_conda=True)
+        cmec_setup(
+            conda_source=args.conda_source,
+            env_dir=args.env_root,
+            remove_conda=args.remove_conda)
 
     # Register
     if args.command == "register":
