@@ -4,6 +4,7 @@ CMEC driver
 Interface for running CMEC-compliant modules.
 
 Examples:
+
     Add conda source information::
 
     $ python cmec-driver.py setup -conda_source <path_to_conda>
