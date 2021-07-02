@@ -776,6 +776,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     pod_varlist = {}
     pod_frequency = {}
     pod_runtime = {}
+    mdtf_path = {}
 
     for module in module_list:
         # Get name of base module
@@ -846,6 +847,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             pod_varlist[module] = cmec_settings.get_setting("varlist")
             pod_frequency[module] = cmec_settings.get_setting("data")["frequency"]
             pod_runtime[module] = cmec_settings.get_setting("settings")["runtime_requirements"]
+            mdtf_path[module] = Path(module_path).resolve().parents[1]
 
     assert len(module_path_list) == len(driver_script_list)
     assert len(module_path_list) == len(working_dir_list)
@@ -897,6 +899,10 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
         # Create directories
         path_out.mkdir(parents=True)
+        path_out_model = path_out / "model" / "netcdf"
+        path_out_model.mkdir(parents=True)
+        path_out_model = path_out / "model" / "PS"
+        path_out_model.mkdir(parents=True)
 
     # Create command scripts
     env_scripts = []
@@ -936,6 +942,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 script_lines.append("export DATADIR=%s\n" % modpath_full)
                 script_lines.append("export POD_HOME=%s\n" % module_path_full)
                 script_lines.append("export WK_DIR=%s\n" % working_full)
+                script_lines.append("export RGB=%s\n" % str(Path(mdtf_path[module])  / Path("shared") / Path("rgb")))
                 for item in pod_settings:
                     script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
                 for varname in pod_varlist[module]:
@@ -943,6 +950,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                     env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], varname, pod_frequency[module]))
                     env_path = modpath_full / Path(pod_settings["CASENAME"]) / Path(pod_frequency[module]) / env_basename
                     script_lines.append("export %s=%s\n" % (env_var,env_path))
+                    script_lines.append("export %s=%s\n" % (varname+"_var",varname))
                 env_name = get_mdtf_env(module, pod_runtime[module])
                 script_lines.append("source $CONDA_SOURCE\nconda activate $CONDA_ENV_ROOT/%s\n" % env_name)
             if driver.suffix == ".py":
