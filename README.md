@@ -40,3 +40,5 @@ python cmec-driver.py run -obs \<obs dir\> \<model dir\> \<working dir\> \<list 
 - The -obs directory is optional but other directories are required.
 
 Some modules allow settings to be modified. These settings can be changed in config/cmec.json after the module is registered.
+
+More detailed installation and set up instructions can be found in the [wiki](https://github.com/cmecmetrics/cmec-driver/wiki/Installation-and-Setup).
