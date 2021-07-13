@@ -4,33 +4,39 @@ CMEC driver
 Interface for running CMEC-compliant modules.
 
 Examples:
-    Add conda install information::
 
-    $ python cmec_driver.py setup -conda_source <path_to_conda>
-    $ python cmec_driver.py setup -conda_source ~/miniconda3/etc/profile.d/conda.sh
+    Add conda source information::
+
+    $ python cmec-driver.py setup -conda_source <path_to_conda>
+    $ python cmec-driver.py setup -conda_source ~/miniconda3/etc/profile.d/conda.sh
+
+    Add environment directory::
+
+    $ python cmec-driver.py setup -env_root <path_to_environments>
+    $ python cmec-driver.py setup -env_root ~/miniconda3/envs
 
     Remove conda install information::
 
-    $ python cmec_driver.py setup -remove_conda
+    $ python cmec-driver.py setup -clear_conda
 
     Registering a module::
 
-    $ python cmec_driver.py register <module_directory_path>
-    $ python cmec_driver.py register ~/modules/ILAMB
+    $ python cmec-driver.py register <module_directory_path>
+    $ python cmec-driver.py register ~/modules/ILAMB
 
     Unregistering a module::
 
-    $ python cmec_driver.py unregister <module_name>
-    $ python cmec_driver.py unregister ILAMB
+    $ python cmec-driver.py unregister <module_name>
+    $ python cmec-driver.py unregister ILAMB
 
     List modules::
 
-    $ python cmec_driver.py list -all
+    $ python cmec-driver.py list -all
 
     Run a module::
 
-    $ python cmec_driver.py run -obs <observations_folder> <model_folder> <output_folder> <module_name>
-    $ python cmec_driver.py run -obs ./obs ./model ./output PMP/meanclimate
+    $ python cmec-driver.py run -obs <observations_folder> <model_folder> <output_folder> <module_name>
+    $ python cmec-driver.py run -obs ./obs ./model ./output PMP/meanclimate
 
 Attributes:
     version (str): CMEC driver version
@@ -45,10 +51,12 @@ from pathlib import Path
 import glob
 import json
 import string
+import subprocess
 import sys
 import os
 
-version = "20210610"
+
+version = "20210617"
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
@@ -242,15 +250,24 @@ class CMECLibrary():
         """Get a list of the modules in the library."""
         return [*self.map_module_path_list]
 
-    def get_conda_root(self):
-        """Return path to conda install."""
-        return self.jlib.get("conda_root",None)
+    def getCondaRoot(self):
+        """Return path to conda install"""
+        return self.jlib.get("conda_source",None)
 
-    def set_conda_root(self, conda_root):
-        self.jlib["conda_root"] = conda_root
+    def setCondaRoot(self, conda_source):
+        self.jlib["conda_source"] = conda_source
 
-    def clear_conda_root(self):
-        self.jlib.pop("conda_root", None)
+    def clearCondaRoot(self):
+        self.jlib.pop("conda_source", None)
+
+    def getEnvRoot(self):
+        return self.jlib.get("conda_env_root",None)
+
+    def setEnvRoot(self, env_dir):
+        self.jlib["conda_env_root"] = env_dir
+
+    def clearEnvRoot(self):
+        self.jlib.pop("conda_env_root")
 
     def get_env_root(self):
         return self.jlib.get("conda_env_root",None)
@@ -535,6 +552,44 @@ class CMECModuleTOC():
             return self.map_configs[setting]
         return False
 
+class CMECIndex():
+    """Class that handles top-level index.html."""
+    def __init__(self,wkdir):
+        self.text = []
+        self.wkdir = Path(wkdir)
+        self.html_file = Path(wkdir) / "index.html"
+        self.html_list = Path(wkdir) / ".html_pages"
+
+    def read(self):
+        if self.html_list.exists():
+            with open(self.html_list,"r") as f:
+                self.html_page_dict = json.load(f)
+        else:
+            self.html_page_dict = {}
+
+    def link_results(self,configuration,index_page):
+        self.html_page_dict[configuration] = index_page
+
+    def write(self):
+        self.text = ["<html>",
+            "<head><title>CMEC Driver Results</title></head>",
+            "<h1>CMEC Driver Results</h1>"
+            ]
+        for module_name in sorted(list(self.html_page_dict)):
+            # Add links for each page to html text
+            if (self.wkdir / self.html_page_dict[module_name]).exists():
+                new_text = '<br><a href="{0}">{1}</a>'.format(self.html_page_dict[module_name],module_name)
+                self.text.append(new_text)
+            else:
+                # Clean up pages that don't exist now
+                self.html_page_dict.pop(module_name)
+        self.text.append("</html>")
+        with open(self.html_file,"w") as f:
+            f.writelines(self.text)
+        # Update database of html index pages
+        with open(self.html_list,"w") as f:
+            json.dump(self.html_page_dict, f, indent=2)
+
 
 class CMECConfig():
     """Access CMEC config file cmec.json"""
@@ -573,36 +628,38 @@ class CMECConfig():
             json.dump(self.settings, cfile, indent=4)
 
 
-def cmec_setup(conda_source=None,env_dir=None,remove_conda=False):
+def cmec_setup(conda_source=None,env_dir=None,clear_conda=False):
     """Set up conda environment.
     Args:
         **kwargs:
             conda_source (str): path to conda installation directory
-            remove_conda (bool): to clear conda_source from library
+            env_dir (str): path to conda environment folder
+            clear_conda (bool): to clear conda_source from library
     """
-    print("Reading CMEC library")
-    lib = CMECLibrary()
-    lib.read()
+    if (conda_source is not None) | (env_dir is not None) | clear_conda:
+        print("Reading CMEC library")
+        lib = CMECLibrary()
+        lib.Read()
 
-    if conda_source is not None:
-        print("Validating conda install location")
-        if not Path(conda_source).exists():
-            raise CMECError("Conda install location does not exist")
-        print("Setting conda root")
-        lib.set_conda_root(conda_source)
-    if env_dir is not None:
-        print("Validating environment directory")
-        if not Path(env_dir).exists():
-            raise CMECError("Environment directory does not exist")
-        print("Setting environment root")
-        lib.set_env_root(env_dir)
-    if remove_conda:
-        print("Clearing conda settings")
-        lib.clear_conda_root()
-        lib.clear_env_root()
+        if conda_source is not None:
+            print("Validating conda install location")
+            if not Path(conda_source).exists():
+                raise CMECError("Conda install location does not exist")
+            print("Setting conda root")
+            lib.setCondaRoot(conda_source)
+        if env_dir is not None:
+            print("Validating environment directory")
+            if not Path(env_dir).exists():
+                raise CMECError("Environment directory does not exist")
+            print("Setting environment root")
+            lib.setEnvRoot(env_dir)
+        if clear_conda:
+            print("Clearing conda settings")
+            lib.clearCondaRoot()
+            lib.clearEnvRoot()
 
-    print("Writing CMEC library")
-    lib.write()
+        print("Writing CMEC library")
+        lib.Write()
 
 def cmec_register(module_dir, config_file):
     """Add a module to the cmec library.
@@ -960,13 +1017,43 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             script.writelines(script_lines)
         os.system("chmod u+x " + str(path_script))
 
+    # Get main cmec-driver index.html info
+    cmec_index = CMECIndex(workpath)
+    cmec_index.read()
+
     # Execute command scripts
     print("Executing driver scripts")
-    for env_script, work_dir in zip(env_scripts, working_dir_list):
+    for env_script, working_dir in zip(env_scripts, working_dir_list):
         print("------------------------------------------------------------")
-        print(str(work_dir))
-        os.system(str(env_script))
+        subprocess.call(["sh",env_script], shell=False)
+        # Generate index.html if not available:
+        result_list = os.listdir(workpath / working_dir)
+        result_list.remove("cmec_run.bash")
+        if Path(workpath / working_dir / "output.json").exists():
+            with open(Path(workpath / working_dir / "output.json")) as output_json:
+                results = json.load(output_json)
+            index = results["index"]
+        else: 
+            index = "index.html"
+        if not (index in result_list):
+            print("Generating default index.html")
+            # Generate default index
+            html_text=['<html>\n',
+                '<body>',
+                '<head><title>CMEC Driver Results</title></head>\n',
+                '<h1>{0} Results</h1>\n'.format(str(working_dir))]
+            for item in result_list:
+                if item.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+                    html_text.append('<p><a href="{0}" target="_blank" alt={0}><img src="{0}" width="647" alt="{0}"></a></p>\n'.format(item))
+                else:    
+                    html_text.append('<br><a href="{0}" target="_blank">{0}</a>\n'.format(item))
+            html_text.append('</html>')
+            with open(workpath / working_dir / index, "w") as index_html:
+                index_html.writelines(html_text)
+        cmec_index.link_results(str(working_dir),str(working_dir / index))
     print("------------------------------------------------------------")
+    # Generate cmec-driver navigation page
+    cmec_index.write()
 
 
 if __name__ == "__main__":
@@ -991,7 +1078,7 @@ if __name__ == "__main__":
 
     parser_inst.add_argument("-conda_source", default=None, type=str)
     parser_inst.add_argument("-env_root", default=None, type=str)
-    parser_inst.add_argument("-remove_conda", action="store_true", default=False)
+    parser_inst.add_argument("-clear_conda", action="store_true", default=False)
     parser_reg.add_argument("modpath", type=str)
     parser_unreg.add_argument("module")
     parser_list.add_argument("-all", action="store_true", default=False,
@@ -1012,7 +1099,7 @@ if __name__ == "__main__":
         cmec_setup(
             conda_source=args.conda_source,
             env_dir=args.env_root,
-            remove_conda=args.remove_conda)
+            clear_conda=args.clear_conda)
 
     # Register
     if args.command == "register":

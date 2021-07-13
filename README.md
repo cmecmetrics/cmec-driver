@@ -28,6 +28,8 @@ A python version of the driver is available. The driver only requires packages f
 
 Usage is similar to the original C++ cmec-driver. From the cmec-driver directory:
 
+python cmec-driver.py setup -conda_source \<path to conda executable\> -env_root \<conda env directory\> -clear_conda
+
 python cmec-driver.py register \<module dir\>
 
 python cmec-driver.py unregister \<module name\>
@@ -38,5 +40,3 @@ python cmec-driver.py run -obs \<obs dir\> \<model dir\> \<working dir\> \<list 
 - The -obs directory is optional but other directories are required.
 
 Some modules allow settings to be modified. These settings can be changed in config/cmec.json after the module is registered.
-
-For developers: default user settings should be provided in settings.py under the top-level key "default_parameters". Modules should load these settings from $CMEC_CONFIG_DIR/cmec.json.
