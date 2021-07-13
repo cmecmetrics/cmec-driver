@@ -50,6 +50,7 @@ Add tests
 from pathlib import Path
 import json
 import string
+import subprocess
 import sys
 import os
 
@@ -489,6 +490,45 @@ class CMECModuleTOC():
             return self.map_configs[setting]
         return False
 
+class CMECIndex():
+    """Class that handles top-level index.html."""
+    def __init__(self,wkdir):
+        self.text = []
+        self.wkdir = Path(wkdir)
+        self.html_file = Path(wkdir) / "index.html"
+        self.html_list = Path(wkdir) / ".html_pages"
+
+    def read(self):
+        if self.html_list.exists():
+            with open(self.html_list,"r") as f:
+                self.html_page_dict = json.load(f)
+        else:
+            self.html_page_dict = {}
+
+    def link_results(self,configuration,index_page):
+        self.html_page_dict[configuration] = index_page
+
+    def write(self):
+        self.text = ["<html>",
+            "<head><title>CMEC Driver Results</title></head>",
+            "<h1>CMEC Driver Results</h1>"
+            ]
+        for module_name in sorted(list(self.html_page_dict)):
+            # Add links for each page to html text
+            if (self.wkdir / self.html_page_dict[module_name]).exists():
+                new_text = '<br><a href="{0}">{1}</a>'.format(self.html_page_dict[module_name],module_name)
+                self.text.append(new_text)
+            else:
+                # Clean up pages that don't exist now
+                self.html_page_dict.pop(module_name)
+        self.text.append("</html>")
+        with open(self.html_file,"w") as f:
+            f.writelines(self.text)
+        # Update database of html index pages
+        with open(self.html_list,"w") as f:
+            json.dump(self.html_page_dict, f, indent=2)
+
+
 def cmec_setup(conda_source=None,env_dir=None,clear_conda=False):
     """Set up conda environment.
     Args:
@@ -819,13 +859,43 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\nexport CONDA_SOURCE=%s\nexport CONDA_ENV_ROOT=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, lib.getCondaRoot(), lib.getEnvRoot(), driver))
         os.system("chmod u+x " + str(path_script))
 
+    # Get main cmec-driver index.html info
+    cmec_index = CMECIndex(workpath)
+    cmec_index.read()
+
     # Execute command scripts
     print("Executing driver scripts")
-    for env_script, work_dir in zip(env_scripts, working_dir_list):
+    for env_script, working_dir in zip(env_scripts, working_dir_list):
         print("------------------------------------------------------------")
-        print(str(work_dir))
-        os.system(str(env_script))
+        subprocess.call(["sh",env_script], shell=False)
+        # Generate index.html if not available:
+        result_list = os.listdir(workpath / working_dir)
+        result_list.remove("cmec_run.bash")
+        if Path(workpath / working_dir / "output.json").exists():
+            with open(Path(workpath / working_dir / "output.json")) as output_json:
+                results = json.load(output_json)
+            index = results["index"]
+        else: 
+            index = "index.html"
+        if not (index in result_list):
+            print("Generating default index.html")
+            # Generate default index
+            html_text=['<html>\n',
+                '<body>',
+                '<head><title>CMEC Driver Results</title></head>\n',
+                '<h1>{0} Results</h1>\n'.format(str(working_dir))]
+            for item in result_list:
+                if item.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+                    html_text.append('<p><a href="{0}" target="_blank" alt={0}><img src="{0}" width="647" alt="{0}"></a></p>\n'.format(item))
+                else:    
+                    html_text.append('<br><a href="{0}" target="_blank">{0}</a>\n'.format(item))
+            html_text.append('</html>')
+            with open(workpath / working_dir / index, "w") as index_html:
+                index_html.writelines(html_text)
+        cmec_index.link_results(str(working_dir),str(working_dir / index))
     print("------------------------------------------------------------")
+    # Generate cmec-driver navigation page
+    cmec_index.write()
 
 
 if __name__ == "__main__":
