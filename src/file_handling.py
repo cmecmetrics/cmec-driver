@@ -489,7 +489,7 @@ class CMECIndex():
 class CMECConfig():
     """Access CMEC config file cmec.json"""
     def __init__(self):
-        self.path = Path(__file__).absolute().parents[0] / Path("config/cmec.json")
+        self.path = Path(__file__).absolute().parents[1] / Path("config/cmec.json")
         if not self.path.exists():
             with open(self.path,"w") as cfile:
                 json.dump({}, cfile, indent=4)
