@@ -8,11 +8,7 @@ import subprocess
 import sys
 import os
 
-version = "20210617"
-cmec_library_name = ".cmeclibrary"
-cmec_toc_name = "contents.json"
-cmec_settings_name = "settings.json"
-cmec_settings_name_alt = "settings.jsonc"
+from cmec_global_vars import *
 
 class CMECError(Exception):
     """Errors related to CMEC standards.

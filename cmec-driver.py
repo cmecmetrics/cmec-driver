@@ -58,31 +58,8 @@ import os
 sys.path.insert(0,"./src")
 from file_handling import *
 from mdtf_support import *
-
-version = "20210617"
-cmec_library_name = ".cmeclibrary"
-cmec_toc_name = "contents.json"
-cmec_settings_name = "settings.json"
-cmec_settings_name_alt = "settings.jsonc"
-
-def user_prompt(question, default = "yes"):
-    """Asks the user a yes/no question
-
-    Args:
-        question (str): Question for the user
-    """
-    prompt = '[y/n] '
-    valid = {"yes": True, "y": True, "no": False, "n": False}
-
-    while True:
-        sys.stdout.write(question + " " + prompt)
-        choice = input().lower()
-        if choice == '':
-            return valid[default]
-        if choice in valid:
-            return valid[choice]
-    sys.stdout.write("Please respond 'y' or 'n' ")
-
+from utils import *
+from cmec_global_vars import *
 
 def cmec_setup(conda_source=None,env_dir=None,clear_conda=False):
     """Set up conda environment.
@@ -280,18 +257,15 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     lib = CMECLibrary()
     lib.read()
 
-    # Build dirver script list
+    # Build driver script list
     print("Identifying drivers")
 
-    module_path_list = []
-    driver_script_list = []
-    working_dir_list = []
-    pod_varlist = {}
-    pod_frequency = {}
-    pod_runtime = {}
-    mdtf_path = {}
+    module_dict = {}
+    driver_found = False
 
     for module in module_list:
+        module_dict.update({module: {}})
+
         # Get name of base module
         for char in module.lower():
             if char not in string.ascii_lowercase + string.digits + "_" + "/":
@@ -306,6 +280,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
         # Check for base module in library
         module_path = lib.find(str_parent_module)
+        module_dict[module].update({"module_path": module_path})
         if not module_path:
             raise CMECError(
                 "Module " + str_parent_module
@@ -313,6 +288,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
         # Check if module is pod
         mod_is_pod = lib.is_pod(module)
+        module_dict[module].update({"mod_is_pod": mod_is_pod})
 
         # Check if module contains a settings file
         cmec_settings = CMECModuleSettings()
@@ -326,9 +302,10 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                     + " only contains a single configration")
 
             cmec_settings.read_from_file(tmp_settings_name)
-            module_path_list.append(module_path)
-            driver_script_list.append(module_path / cmec_settings.get_driver_script())
-            working_dir_list.append(Path(cmec_settings.get_name()))
+            module_dict[module].update({"module_path": module_path})
+            module_dict[module].update({"driver_script": module_path/cmec_settings.get_driver_script()})
+            module_dict[module].update({"working_dir": Path(cmec_settings.get_name())})
+            module_dict[module].update({"working_dir_full": workpath/Path(cmec_settings.get_name())})
 
         # Check if module contains a contents file
         elif cmec_toc.exists_in_module_path(module_path):
@@ -340,10 +317,11 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 if str_configuration in ("", setting):
                     setting_path = cmec_toc.find(setting)
                     cmec_settings.read_from_file(setting_path)
-                    module_path_list.append(setting_path.parents[0])
-                    driver_script_list.append(module_path / cmec_settings.get_driver_script())
-                    working_dir_list.append(Path(cmec_toc.get_name()) / Path(cmec_settings.get_name()))
                     config_found = True
+                    module_dict[module].update({"module_path": setting_path.parents[0]})
+                    module_dict[module].update({"driver_script": module_path/cmec_settings.get_driver_script()})
+                    module_dict[module].update({"working_dir": Path(cmec_toc.get_name())/Path(cmec_settings.get_name())})
+                    module_dict[module].update({"working_dir_full": workpath/Path(cmec_toc.get_name())/Path(cmec_settings.get_name())})
 
             if ((str_configuration != "") and not config_found):
                 raise CMECError(
@@ -356,32 +334,31 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 + " does not contain " + cmec_settings_name
                 + " or " + cmec_toc_name)
 
-        if mod_is_pod:
-            pod_varlist[module] = cmec_settings.get_setting("varlist")
-            pod_frequency[module] = cmec_settings.get_setting("data")["frequency"]
-            pod_runtime[module] = cmec_settings.get_setting("settings")["runtime_requirements"]
-            mdtf_path[module] = Path(module_path).resolve().parents[1]
+        if module_dict[module]["driver_script"]:
+            driver_found = True
 
-    assert len(module_path_list) == len(driver_script_list)
-    assert len(module_path_list) == len(working_dir_list)
+        if module_dict[module]["mod_is_pod"]:
+            module_dict[module]["pod_varlist"] = cmec_settings.get_setting("varlist")
+            module_dict[module]["frequency"] = cmec_settings.get_setting("data")["frequency"]
+            module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
+            module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
 
     # Check for zero drivers
-    if not driver_script_list:
+    if not driver_found:
         raise CMECError("No driver files found")
 
     # Output driver file list
     print(
-        "The following " + str(len(driver_script_list))
+        "The following " + str(len(module_dict.keys()))
         + " modules will be executed:")
     print("------------------------------------------------------------")
-    for working_dir, path, driver in zip(working_dir_list, module_list, driver_script_list):
-        print("MODULE_NAME: " + str(working_dir))
-        print("MODULE_PATH: " + str(path))
-        print("  " + str(driver))
+    for module in module_dict:
+        print("MODULE_NAME: " + str(module_dict[module]["working_dir"]))
+        print("MODULE_PATH: " + str(module_dict[module]["module_path"]))
+        print(" " + str(module_dict[module]["driver_script"]))
     print("------------------------------------------------------------")
 
     # Environment variables
-    # If MDTF POD, read env variables from a few different files.
     print("The following environment variables will be set:")
     print("------------------------------------------------------------")
     print("CMEC_OBS_DATA=" + str(obspath))
@@ -389,15 +366,13 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     print("CMEC_WK_DIR=" + str(workpath) + "/$MODULE_NAME")
     print("CMEC_CODE_DIR=$MODULE_PATH")
     print("CMEC_CONFIG_DIR=" + str(config_dir))
-    if mod_is_pod:
-        print("along with additional MDTF POD environment variables")
+    print("along with additional MDTF POD environment variables as needed")
     print("------------------------------------------------------------")
 
     # Create output directories
     print("Creating output directories")
-
-    for driver, working_dir in zip(driver_script_list, working_dir_list):
-        path_out = workpath / working_dir
+    for module in module_dict:
+        path_out = module_dict[module]["working_dir_full"]
 
         # Check for existence of output directories
         if path_out.exists():
@@ -405,92 +380,86 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             overwrite = user_prompt(question, default="yes")
             if overwrite:
                 os_command = "rm -rf " + str(path_out)
-                os.system(os_command)
+                subprocess.call(["rm","-rf",str(path_out)], shell=False)
                 # Check exit code?
             else:
                 raise CMECError("Unable to clear output directory")
         
-        # Create directories
+        # Create new output directories directories
         path_out.mkdir(parents=True)
-        if mod_is_pod:
-            path_out_tmp = path_out / "model" / "netcdf"
-            path_out_tmp.mkdir(parents=True)
-            path_out_tmp = path_out / "model" / "PS"
-            path_out_tmp.mkdir(parents=True)
-            path_out_tmp = path_out / "obs"
-            path_out_tmp.mkdir(parents=True)
+        if module_dict[module]["mod_is_pod"]:
+            for folder in [path_out/"model"/"netcdf", path_out/"model"/"PS", path_out/"obs"]:
+                path_out_tmp = folder
+                path_out_tmp.mkdir(parents=True)
 
     # Create command scripts
-    env_scripts = []
-    for driver, workingDir, mPath, module in zip(driver_script_list, working_dir_list, module_path_list, module_list):
-        path_working_dir = workpath / workingDir
-        path_script = path_working_dir / "cmec_run.bash"
-        env_scripts.append(path_script)
+    for module in module_dict:
+        path_out = module_dict[module]["working_dir_full"]
+        path_script = path_out/"cmec_run.bash"
+        module_dict[module].update({"env_script": path_script})
         print(str(path_script))
-        # resolve paths for writing if they exist:
-        module_path_full = mPath.resolve()
+        # Resolve paths for env variables if they exist:
+        module_path_full = module_dict[module]["module_path"].resolve()
         modpath_full = modpath.resolve()
-        working_full = path_working_dir.resolve()
+        working_full = path_out.resolve()
         config_full = config_dir.resolve()
-        obspath_full = None
         if obspath is not None:
             obspath_full = obspath.resolve()
         else:
             obspath_full = "None"
+
+        # Generate cmec_run.bash
         script_lines = []
+        script_lines.append("#!/bin/bash\n")
+        script_lines.append("export CMEC_CODE_DIR=%s\n" % module_path_full)
+        script_lines.append("export CMEC_OBS_DATA=%s\n" % obspath_full)
+        script_lines.append("export CMEC_MODEL_DATA=%s\n" % modpath_full)
+        script_lines.append("export DATADIR=%s\n" % modpath_full)
+        script_lines.append("export CMEC_WK_DIR=%s\n" % working_full)
+        script_lines.append("export CMEC_CONFIG_DIR=%s\n" % config_full)
+        script_lines.append("export CONDA_SOURCE=%s\n" % lib.get_conda_root())
+        script_lines.append("export CONDA_ENV_ROOT=%s\n" % lib.get_env_root())
+
+        if module_dict[module]["mod_is_pod"]:
+            # Write pod env
+            cmec_config = CMECConfig()
+            cmec_config.read()
+            pod_settings = cmec_config.get_module_settings(module)
+            script_lines.append("export OBS_DATA=%s\n" % obspath_full)
+            script_lines.append("export POD_HOME=%s\n" % module_path_full)
+            script_lines.append("export WK_DIR=%s\n" % working_full)
+            script_lines.append("export RGB=%s\n" % str(Path(module_dict[module]["mdtf_path"])/"shared"/"rgb"))
+            # Each setting becomes an env variable
+            for item in pod_settings:
+                script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
+            # Each data variable also becomes an env variable
+            for varname in module_dict[module]["pod_varlist"]:
+                env_var = varname.upper()+"_FILE"
+                env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], varname, module_dict[module]["frequency"]))
+                env_path = modpath_full/Path(pod_settings["CASENAME"])/Path(module_dict[module]["frequency"])/env_basename
+                script_lines.append("export %s=%s\n" % (env_var,env_path))
+                script_lines.append("export %s=%s\n" % (varname+"_var",varname))
+
+            # Need to activate conda env here since MDTF driver scripts don't do it
+            env_name = get_mdtf_env(module, module_dict[module]["runtime"])
+            script_lines.append("source $CONDA_SOURCE\nconda activate $CONDA_ENV_ROOT/%s\n" % env_name)
+
+            # Copy html page from module codebase
+            index_pod = module + ".html"
+            module_dict[module].update({"index": index_pod})
+            src = module_path_full/index_pod
+            dst = path_out/index_pod
+            mdtf_copy_html(src,dst,pod_settings)
+
+        driver = module_dict[module]["driver_script"]
+        if driver.suffix == ".py":
+            script_lines.append("python %s\n" % driver)
+        else:
+            script_lines.append("%s\n" % driver)
         with open(path_script, "w") as script:
-            script_lines.append("#!/bin/bash\n")
-            script_lines.append("export CMEC_CODE_DIR=%s\n" % module_path_full)
-            script_lines.append("export CMEC_OBS_DATA=%s\n" % obspath_full)
-            script_lines.append("export CMEC_MODEL_DATA=%s\n" % modpath_full)
-            script_lines.append("export DATADIR=%s\n" % modpath_full)
-            script_lines.append("export CMEC_WK_DIR=%s\n" % working_full)
-            script_lines.append("export CMEC_CONFIG_DIR=%s\n" % config_full)
-            script_lines.append("export CONDA_SOURCE=%s\n" % lib.get_conda_root())
-            script_lines.append("export CONDA_ENV_ROOT=%s\n" % lib.get_env_root())
-            if mod_is_pod:
-                print(module)
-                # write pod env
-                cmec_config = CMECConfig()
-                cmec_config.read()
-                pod_settings = cmec_config.get_module_settings(module)
-                script_lines.append("export OBS_DATA=%s\n" % obspath_full)
-                script_lines.append("export POD_HOME=%s\n" % module_path_full)
-                script_lines.append("export WK_DIR=%s\n" % working_full)
-                script_lines.append("export RGB=%s\n" % str(Path(mdtf_path[module])  / Path("shared") / Path("rgb")))
-                for item in pod_settings:
-                    script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
-                for varname in pod_varlist[module]:
-                    env_var = varname.upper()+"_FILE"
-                    env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], varname, pod_frequency[module]))
-                    env_path = modpath_full / Path(pod_settings["CASENAME"]) / Path(pod_frequency[module]) / env_basename
-                    script_lines.append("export %s=%s\n" % (env_var,env_path))
-                    script_lines.append("export %s=%s\n" % (varname+"_var",varname))
-                env_name = get_mdtf_env(module, pod_runtime[module])
-                script_lines.append("source $CONDA_SOURCE\nconda activate $CONDA_ENV_ROOT/%s\n" % env_name)
-                # copy html page
-                index_pod = module + ".html"
-                src = module_path_full / index_pod
-                dst = path_working_dir / index_pod
-                html_lines = []
-                with open(src,"r") as f:
-                    lines = f.readlines()
-                for line in lines:
-                    # TODO see if there's other settings that need to be popped in
-                    # see https://github.com/NOAA-GFDL/MDTF-diagnostics/blob/d00538dbd39740baab905121508bbe87cc52d716/src/output_manager.py#L67
-                    if "{{CASENAME}}" in line:
-                        line = line.replace("{{CASENAME}}",pod_settings["CASENAME"])
-                    html_lines.append(line)
-                with open(dst,"w") as f:
-                    f.writelines(html_lines)
-                    # TODO copy obs data into correct locations
-                    # TODO also ref other tasks in https://github.com/NOAA-GFDL/MDTF-diagnostics/blob/d00538dbd39740baab905121508bbe87cc52d716/src/output_manager.py#L199
-            if driver.suffix == ".py":
-                script_lines.append("python %s\n" % driver)
-            else:
-                script_lines.append("%s\n" % driver)
             script.writelines(script_lines)
-        os.system("chmod u+x " + str(path_script))
+        subprocess.call(["chmod","u+x",str(path_script)], shell=False)
+        #os.system("chmod u+x " + str(path_script))
 
     # Get main cmec-driver index.html info
     cmec_index = CMECIndex(workpath)
@@ -498,37 +467,34 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
     # Execute command scripts
     print("Executing driver scripts")
-    for env_script, working_dir in zip(env_scripts, working_dir_list):
+    for module in module_dict:
+        mod_is_pod = module_dict[module]["mod_is_pod"]
+        working_dir = module_dict[module]["working_dir"]
+        env_script = str(module_dict[module]["env_script"])
+        path_out = module_dict[module]["working_dir_full"]
         print("------------------------------------------------------------")
         subprocess.call(["sh",env_script], shell=False)
-        # Generate index.html if not available:
-        result_list = os.listdir(workpath / working_dir)
-        result_list.remove("cmec_run.bash")
-        if Path(workpath / working_dir / "output.json").exists():
-            with open(Path(workpath / working_dir / "output.json")) as output_json:
+
+        # Generate index.html if not available
+        # First find index name
+        if Path(path_out/"output.json").exists():
+            with open(Path(path_out/"output.json")) as output_json:
                 results = json.load(output_json)
             index = results["index"]
         elif mod_is_pod:
-            index = index_pod
-            # TODO: convert PS images to PNG e.g. https://github.com/NOAA-GFDL/MDTF-diagnostics/blob/d00538dbd39740baab905121508bbe87cc52d716/src/output_manager.py#L95
+            index = module_dict[module]["index"]
+            mdtf_ps_to_png(path_out/"model"/"PS",path_out/"model",lib.get_conda_root(),lib.get_env_root())
+            # TODO copy obs data into correct locations
         else: 
             index = "index.html"
+        # If index page doesn't exist, create default page
+        result_list = os.listdir(path_out)
+        result_list.remove("cmec_run.bash")
         if not (index in result_list) and not mod_is_pod:
             print("Generating default index.html")
-            # Generate default index
-            html_text=['<html>\n',
-                '<body>',
-                '<head><title>CMEC Driver Results</title></head>\n',
-                '<h1>{0} Results</h1>\n'.format(str(working_dir))]
-            for item in result_list:
-                if item.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-                    html_text.append('<p><a href="{0}" target="_blank" alt={0}><img src="{0}" width="647" alt="{0}"></a></p>\n'.format(item))
-                else:    
-                    html_text.append('<br><a href="{0}" target="_blank">{0}</a>\n'.format(item))
-            html_text.append('</html>')
-            with open(workpath / working_dir / index, "w") as index_html:
-                index_html.writelines(html_text)
-        cmec_index.link_results(str(working_dir),str(working_dir / index))
+            default_html_page(module, path_out/index)
+        cmec_index.link_results(str(working_dir),str(working_dir/index))
+
     print("------------------------------------------------------------")
     # Generate cmec-driver navigation page
     cmec_index.write()
