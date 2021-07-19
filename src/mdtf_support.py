@@ -100,3 +100,12 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
     for f in move_list:
         cmd = "mv {0} {1}".format(os.path.join(src_dir,f),os.path.join(dst_dir,f))
         os.system(cmd)
+
+def mdtf_copy_obs():
+    """Copy obs data to output folder."""
+    pass
+
+def mdtf_file_cleanup(wk_dir,clear_ps=True,clear_nc=True):
+    """Delete PS and netCDF if requested."""
+    if clear_ps:
+        pass

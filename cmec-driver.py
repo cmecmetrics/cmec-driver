@@ -339,9 +339,14 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
         if module_dict[module]["mod_is_pod"]:
             module_dict[module]["pod_varlist"] = cmec_settings.get_setting("varlist")
-            module_dict[module]["frequency"] = cmec_settings.get_setting("data")["frequency"]
             module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
             module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
+            data = cmec_settings.get_setting("data")
+            if data:
+                module_dict[module]["frequency"] = data["frequency"]
+            else:
+                var1 = [*module_dict[module]["pod_varlist"]][0]
+                module_dict[module]["frequency"] = module_dict[module]["pod_varlist"][var1]["frequency"]
 
     # Check for zero drivers
     if not driver_found:
