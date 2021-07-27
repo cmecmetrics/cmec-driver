@@ -397,6 +397,14 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 path_out_tmp = folder
                 path_out_tmp.mkdir(parents=True)
 
+    # Resolve file paths for cmec_run.bash
+    modpath_full = modpath.resolve()
+    config_full = config_dir.resolve()
+    if obspath is not None:
+        obspath_full = obspath.resolve()
+    else:
+        obspath_full = "None"
+
     # Create command scripts
     for module in module_dict:
         path_out = module_dict[module]["working_dir_full"]
@@ -405,13 +413,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         print(str(path_script))
         # Resolve paths for env variables if they exist:
         module_path_full = module_dict[module]["module_path"].resolve()
-        modpath_full = modpath.resolve()
         working_full = path_out.resolve()
-        config_full = config_dir.resolve()
-        if obspath is not None:
-            obspath_full = obspath.resolve()
-        else:
-            obspath_full = "None"
 
         # Generate cmec_run.bash
         script_lines = []
@@ -437,13 +439,29 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             # Each setting becomes an env variable
             for item in pod_settings:
                 script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
+            convention = pod_settings.get("convention","")
+            if convention != "CMIP":
+                # filename will use variable names specific to convention
+                cmip = module_dict[module]["mdtf_path"]/"data"/"fieldlist_CMIP.jsonc"
+                print(cmip)
+                CMIP = MDTF_fieldlist(cmip)
+                CMIP.read()
+                flistname = "fieldlist_" + convention + ".jsonc"
+                CONV = MDTF_fieldlist(module_dict[module]["mdtf_path"]/"data"/flistname)
+                CONV.read()
             # Each data variable also becomes an env variable
             for varname in module_dict[module]["pod_varlist"]:
-                env_var = varname.upper()+"_FILE"
-                env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], varname, module_dict[module]["frequency"]))
+                if convention != "CMIP":
+                    stnd_name = CMIP.get_standard_name(varname)
+                    conv_varname = CONV.lookup_by_standard_name(stnd_name)
+                    script_lines.append("export %s=%s\n" % (varname+"_var",conv_varname))
+                    env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], conv_varname, module_dict[module]["frequency"]))
+                else:
+                    script_lines.append("export %s=%s\n" % (varname+"_var",varname))
+                    env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], varname, module_dict[module]["frequency"]))
                 env_path = modpath_full/Path(pod_settings["CASENAME"])/Path(module_dict[module]["frequency"])/env_basename
+                env_var = varname.upper()+"_FILE"
                 script_lines.append("export %s=%s\n" % (env_var,env_path))
-                script_lines.append("export %s=%s\n" % (varname+"_var",varname))
 
             # Need to activate conda env here since MDTF driver scripts don't do it
             env_name = get_mdtf_env(module, module_dict[module]["runtime"])
@@ -489,7 +507,10 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         elif mod_is_pod:
             index = module_dict[module]["index"]
             mdtf_ps_to_png(path_out/"model"/"PS",path_out/"model",lib.get_conda_root(),lib.get_env_root())
-            # TODO copy obs data into correct locations
+            mdtf_copy_obs(obspath_full,path_out/"obs")
+            clear_ps = not(pod_settings.get("save_ps",False))
+            clear_nc = not(pod_settings.get("save_nc",False))
+            mdtf_file_cleanup(path_out,clear_ps,clear_nc)
         else: 
             index = "index.html"
         # If index page doesn't exist, create default page

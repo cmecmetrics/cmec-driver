@@ -3,10 +3,34 @@
 from pathlib import Path
 import glob
 import json
+import shutil
 import string
 import subprocess
 import sys
 import os
+
+class MDTF_fieldlist():
+    def __init__(self,fpath):
+        self.fieldlist_path = str(fpath)
+        self.fields = ""
+        self.vars = ""
+
+    def read(self):
+        with open(self.fieldlist_path,"r") as fieldlist_file:
+            fields = json.loads(
+                "\n".join(row.split("//",1)[0] for row in fieldlist_file \
+                if not row.lstrip().startswith("//")))
+        self.fields = fields
+        self.vars = fields["variables"]
+
+    def get_standard_name(self,var):
+        return self.vars[var].get("standard_name",None)
+
+    def lookup_by_standard_name(self,standard_name):
+        for item in self.vars:
+            if self.vars[item].get("standard_name","") == standard_name:
+                return item
+
 
 def get_mdtf_env(pod_name, runtime_requirements):
     """Return mdtf environment.
@@ -101,11 +125,25 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
         cmd = "mv {0} {1}".format(os.path.join(src_dir,f),os.path.join(dst_dir,f))
         os.system(cmd)
 
-def mdtf_copy_obs():
-    """Copy obs data to output folder."""
-    pass
+def mdtf_copy_obs(obs_dir,wk_dir):
+    """Copy obs images to output folder."""
+    ext_list = ('.png','.gif','.jpg','.jgep')
+    for item in os.listdir(obs_dir):
+        print(os.path.join(str(obs_dir),item))
+        if item.endswith(ext_list):
+            shutil.copy(os.path.join(str(obs_dir),item),str(wk_dir/item))
 
-def mdtf_file_cleanup(wk_dir,clear_ps=True,clear_nc=True):
+def mdtf_file_cleanup(wk_dir,clear_ps,clear_nc):
     """Delete PS and netCDF if requested."""
     if clear_ps:
-        pass
+        ps_dir = str(wk_dir/"model"/"PS")
+        if os.path.exists(ps_dir):
+            for item in os.listdir(ps_dir):
+                os.remove(os.path.join(ps_dir,item))
+            os.rmdir(ps_dir)
+    if clear_nc:
+        nc_dir = str(wk_dir/"model"/"netcdf")
+        if os.path.exists(nc_dir):
+            for item in os.listdir(nc_dir):
+                os.remove(os.path.join(nc_dir,item))
+            os.rmdir(nc_dir)
