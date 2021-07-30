@@ -49,7 +49,6 @@ Add tests
 """
 from pathlib import Path
 import json
-import shutil
 import string
 import sys
 import os
