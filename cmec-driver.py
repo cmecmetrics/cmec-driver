@@ -53,7 +53,7 @@ import string
 import sys
 import os
 
-version = "20210617"
+version = "20210729"
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
@@ -282,7 +282,6 @@ class CMECModuleSettings():
                 raise CMECError(
                     "Malformed CMEC settings file "
                     + str(path_settings) + ": missing key settings:" + key)
-                # also check type
 
     def CreateConfig(self, config_file, module_name=''):
         """Adds module specific user settings to cmec config json"""
@@ -318,6 +317,10 @@ class CMECModuleSettings():
         else:
             # initialize settings
             all_settings = module_settings
+            # check if config folder exists or needs initialization
+            config_dir = config_file.parents[0]
+            if not config_dir.is_dir():
+                config_dir.mkdir()
         with open(config_file, "w") as cfile:
             json.dump(all_settings, cfile, indent=4)
 
@@ -805,7 +808,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         path_script = path_working_dir / "cmec_run.bash"
         env_scripts.append(path_script)
         print(str(path_script))
-        # resolve paths for writing if they exist:
+        # Resolve paths for writing if they exist:
         module_path_full = mPath.resolve()
         modpath_full = modpath.resolve()
         working_full = path_working_dir.resolve()
@@ -817,7 +820,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             obspath_full = "None"
         with open(path_script, "w") as script:
             script.write("#!/bin/bash\nexport CMEC_CODE_DIR=%s\nexport CMEC_OBS_DATA=%s\nexport CMEC_MODEL_DATA=%s\nexport CMEC_WK_DIR=%s\nexport CMEC_CONFIG_DIR=%s\nexport CONDA_SOURCE=%s\nexport CONDA_ENV_ROOT=%s\n%s" % (module_path_full, obspath_full, modpath_full, working_full, config_full, lib.getCondaRoot(), lib.getEnvRoot(), driver))
-        os.system("chmod u+x " + str(path_script))
+        path_script.chmod(0o775)
 
     # Execute command scripts
     print("Executing driver scripts")
