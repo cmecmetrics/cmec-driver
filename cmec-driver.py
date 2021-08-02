@@ -341,6 +341,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             module_dict[module]["pod_varlist"] = cmec_settings.get_setting("varlist")
             module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
             module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
+            module_dict[module]["dimensions"] = cmec_settings.get_setting("dimensions")
             data = cmec_settings.get_setting("data")
             if data:
                 module_dict[module]["frequency"] = data["frequency"]
@@ -462,6 +463,16 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 env_path = modpath_full/Path(pod_settings["CASENAME"])/Path(module_dict[module]["frequency"])/env_basename
                 env_var = varname.upper()+"_FILE"
                 script_lines.append("export %s=%s\n" % (env_var,env_path))
+            # remove unneeded levels for EOF_500hPa. By default use 'lev'
+            if "plev" in module_dict[module]["dimensions"] and "lev" in module_dict[module]["dimensions"]:
+                pop_var = "plev"
+                if "USE_HYBRID_SIGMA" in module_dict[module]["pod_varlist"]:
+                    if module_dict[module]["pod_varlist"]["USE_HYBRID_SIGMA"] == 0:
+                        pop_var = "lev"
+                module_dict[module]["dimensions"].pop(pop_var)
+            for dim in module_dict[module]["dimensions"]:
+                env_var = dim
+                script_lines.append("export %s_coord=%s\n" % (env_var,env_var))
 
             # Need to activate conda env here since MDTF driver scripts don't do it
             env_name = get_mdtf_env(module, module_dict[module]["runtime"])
@@ -481,8 +492,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             script_lines.append("%s\n" % driver)
         with open(path_script, "w") as script:
             script.writelines(script_lines)
-        subprocess.call(["chmod","u+x",str(path_script)], shell=False)
-        #os.system("chmod u+x " + str(path_script))
+        path_script.chmod(0o775)
 
     # Get main cmec-driver index.html info
     cmec_index = CMECIndex(workpath)

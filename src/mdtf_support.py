@@ -31,7 +31,6 @@ class MDTF_fieldlist():
             if self.vars[item].get("standard_name","") == standard_name:
                 return item
 
-
 def get_mdtf_env(pod_name, runtime_requirements):
     """Return mdtf environment.
     Some borrowing from MDTF environment manager script
@@ -71,7 +70,8 @@ def mdtf_translate_var(varname, convention, mPath):
             return model_var
 
 def mdtf_copy_html(src,dst,pod_settings):
-    """Copy and fill out the html template from the diagnostic codebase."""
+    """Copy and fill out the html template from the diagnostic codebase.
+    Find and copy any other  html files in the code directory."""
     html_lines = []
     with open(src,"r") as f:
         lines = f.readlines()
@@ -82,12 +82,21 @@ def mdtf_copy_html(src,dst,pod_settings):
         html_lines.append(line)
     with open(dst,"w") as f:
         f.writelines(html_lines)
-    # See if there are any other html files to copy
-    result_list = os.listdir(src.parents[0])
-    if "htmls" in result_list:
-        src2 = str(src.parents[0]/"htmls")
-        dst2 = str(dst.parents[0])
-        subprocess.call(["cp",src2,dst2],shell=False)
+    # Copy other html files in folder
+    html_files = []
+    src_dir = Path(src).parents[0]
+    dst_dir = Path(dst).parents[0]
+    for item in glob.glob(str(src_dir/'*html')):
+        if Path(item).name != src.name:
+            html_files.append(item)
+    html_files += glob.glob(str(src_dir/'**'/'*html'))
+    for item in html_files:
+        copy_from = Path(item).relative_to(src_dir)
+        if len(copy_from.parents) > 1:
+            (dst_dir/copy_from.parents[0]).mkdir(exist_ok=True)
+            shutil.copy2(item,dst_dir/copy_from.parents[0])
+        else:
+            shutil.copy2(item,dst_dir)
 
 def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
     """Convert PS to PNG files for html page and move files to
@@ -96,10 +105,8 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
     in_image_list = []
     ext_list = (".ps", ".PS", ".eps", ".EPS", ".pdf", ".PDF")
     file_list = os.listdir(src_dir)
-    for file in file_list:
-        if file.endswith(ext_list):
-            image_name = os.path.join(src_dir,file)
-            in_image_list.append(image_name)
+    for ext in ext_list:
+        in_image_list.extend(glob.glob(str(Path(src_dir)/("*"+ext))))
 
     for im_in in in_image_list:
         # Use gs command in MDTF base environment to convert figure types
@@ -131,7 +138,7 @@ def mdtf_copy_obs(obs_dir,wk_dir):
     for item in os.listdir(obs_dir):
         print(os.path.join(str(obs_dir),item))
         if item.endswith(ext_list):
-            shutil.copy(os.path.join(str(obs_dir),item),str(wk_dir/item))
+            shutil.copy2(os.path.join(str(obs_dir),item),str(wk_dir/item))
 
 def mdtf_file_cleanup(wk_dir,clear_ps,clear_nc):
     """Delete PS and netCDF if requested."""
