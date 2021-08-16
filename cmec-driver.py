@@ -342,11 +342,12 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
             module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
             module_dict[module]["dimensions"] = cmec_settings.get_setting("dimensions")
+            print(module_dict)
             data = cmec_settings.get_setting("data")
             if data:
                 module_dict[module]["frequency"] = data["frequency"]
             else:
-                var1 = [*module_dict[module]["pod_varlist"]][0]
+                var1 = next(iter(module_dict[module]["pod_varlist"]))
                 module_dict[module]["frequency"] = module_dict[module]["pod_varlist"][var1]["frequency"]
 
     # Check for zero drivers
@@ -444,7 +445,6 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             if convention != "CMIP":
                 # filename will use variable names specific to convention
                 cmip = module_dict[module]["mdtf_path"]/"data"/"fieldlist_CMIP.jsonc"
-                print(cmip)
                 CMIP = MDTF_fieldlist(cmip)
                 CMIP.read()
                 flistname = "fieldlist_" + convention + ".jsonc"
@@ -513,9 +513,9 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         if Path(path_out/"output.json").exists():
             with open(Path(path_out/"output.json")) as output_json:
                 results = json.load(output_json)
-            index = results["index"]
+            index = results.get("index","index.html")
         elif mod_is_pod:
-            index = module_dict[module]["index"]
+            index = module_dict[module].get("index","index.html")
             mdtf_ps_to_png(path_out/"model"/"PS",path_out/"model",lib.get_conda_root(),lib.get_env_root())
             mdtf_copy_obs(obspath_full,path_out/"obs")
             clear_ps = not(pod_settings.get("save_ps",False))
@@ -526,9 +526,9 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         # If index page doesn't exist, create default page
         result_list = os.listdir(path_out)
         result_list.remove("cmec_run.bash")
-        if not (index in result_list) and not mod_is_pod:
-            print("Generating default index.html")
-            default_html_page(module, path_out/index)
+        #if not (index in result_list) and not mod_is_pod:
+            #print("Generating default index.html")
+            #default_html_page(module, path_out/index)
         cmec_index.link_results(str(working_dir),str(working_dir/index))
 
     print("------------------------------------------------------------")

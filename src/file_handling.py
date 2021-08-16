@@ -235,7 +235,7 @@ class CMECModuleSettings():
         if "driver" not in self.jsettings["settings"]:
             raise CMECError(
                 "Malformed CMEC settings file "
-                + str(path_settings) + ": missing key 'settings': 'driver'd")
+                + str(path_settings) + ": missing key 'settings': 'driver'.")
 
         for key in ["name","long_name"]:
             if key not in self.jsettings["settings"]:

@@ -23,8 +23,11 @@ class MDTF_fieldlist():
         self.fields = fields
         self.vars = fields["variables"]
 
-    def get_standard_name(self,var):
-        return self.vars[var].get("standard_name",None)
+    def get_standard_name(self,varname):
+        #TODO - figure how how much of string is numeric, ie for levels like 1000
+        if varname[-3:].isnumeric():
+            varname = varname[0:-3]
+        return self.vars[varname].get("standard_name",None)
 
     def lookup_by_standard_name(self,standard_name):
         for item in self.vars:
@@ -117,7 +120,6 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
         out_images = [f for f in os.listdir(src_dir) if (os.path.basename(image_base) + "_MDTF_TEMP_" in f) and (f.endswith("png"))]
         # Clean up figure names and renumber when multiple figures generated
         if len(out_images) == 1:
-            print(out_images[0])
             os.rename(os.path.join(src_dir,out_images[0]), image_base + ".png")
         else:
             for im_num in range(len(out_images)):
@@ -136,7 +138,6 @@ def mdtf_copy_obs(obs_dir,wk_dir):
     """Copy obs images to output folder."""
     ext_list = ('.png','.gif','.jpg','.jgep')
     for item in os.listdir(obs_dir):
-        print(os.path.join(str(obs_dir),item))
         if item.endswith(ext_list):
             shutil.copy2(os.path.join(str(obs_dir),item),str(wk_dir/item))
 
