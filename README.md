@@ -3,41 +3,29 @@ Coordinated Model Evaluation Capabilities (CMEC) driver
 
 This driver is used for organizing evaluation modules on the local system.
 
-To compile:
+## Environment
+The driver only requires packages from the Python 3 standard library. The test module (test/cmec-test.py) requires numpy and xarray.
 
-make
+## Installation
+It is recommended that you create a new Python 3 environment to install the driver. Activate this environment, and from the cmec-driver directory do:
+'python setup.py install'
 
-After compilation, the "cmec-driver" executable will be placed into the "bin" directory.
+## Test
+A test script is provided in the "/test" directory along with instructions in the test README.
 
-Execution:
+## Usage:
+The command line syntax is slightly different from past versions of cmec-driver. Flags have been updated to use two hyphens, and once the driver is installed you do not need to call "python" before running.
 
-cmec-driver register \<module dir\>
-- Register the CMEC-compatible module in \<module dir\> using either a "contents.json" or "settings.json" file.
+cmec-driver.py setup --conda_source \<path to conda executable\> --env_root \<conda env directory\> --clear_conda
 
-cmec-driver unregister \<module name\>
-- Unregister the specified module (remove it from the CMEC library file).
+cmec-driver.py register \<module dir\>
 
-cmec-driver list [all]
-- List all modules currently in the CMEC library.  If [all] is specified, also list all module configurations.
+cmec-driver.py unregister \<module name\>
 
-cmec-driver run \<obs dir\> \<model dir\> \<working dir\> \<list of modules\> ...
-- Execute the specified list of modules on the provided observational data, model data, and working data.
+cmec-driver.py list (--all)
 
-## cmec-driver python
-A python version of the driver is available. The driver only requires packages from the python standard library. The test module (test/cmec-test.py) requires numpy and xarray.
-
-Usage is similar to the original C++ cmec-driver. From the cmec-driver directory:
-
-python cmec-driver.py setup -conda_source \<path to conda executable\> -env_root \<conda env directory\> -clear_conda
-
-python cmec-driver.py register \<module dir\>
-
-python cmec-driver.py unregister \<module name\>
-
-python cmec-driver.py list (-all)
-
-python cmec-driver.py run -obs \<obs dir\> \<model dir\> \<working dir\> \<list of modules\>
-- The -obs directory is optional but other directories are required.
+cmec-driver.py run --obs \<obs dir\> \<model dir\> \<working dir\> \<list of modules\>
+- The --obs directory is optional but other directories are required.
 
 Some modules allow settings to be modified. These settings can be changed in config/cmec.json after the module is registered.
 
