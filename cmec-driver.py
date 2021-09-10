@@ -52,7 +52,7 @@ import string
 import sys
 import os
 
-version = pkg_resources.get_distribution("cmec-driver").version
+version = pkg_resources.get_distribution("cmec_driver").version
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
@@ -841,7 +841,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     print("------------------------------------------------------------")
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -922,3 +922,6 @@ if __name__ == "__main__":
             print(
                 "Usage: python cmec-driver.py run "
                 + "--obs <obs dir> <model dir> <out dir> <mod names>")
+
+if __name__ == "__main__":
+    main()
