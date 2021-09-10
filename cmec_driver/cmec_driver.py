@@ -46,13 +46,15 @@ Attributes:
 
 """
 from pathlib import Path
-import pkg_resources
 import json
 import string
 import sys
 import os
 
-version = pkg_resources.get_distribution("cmec_driver").version
+sys.path[0:0] = ['cmec_driver']
+from version import __version__
+
+version = __version__
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
