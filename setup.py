@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 from setuptools import find_packages, setup
-from codecs import open
 import subprocess
 import os
 
-version = '1.0.0-alpha'
+version = '1.0.0a2'
 
-# Create version file
+# Create version file, similar to PMP method
 p = subprocess.Popen(
     ("git",
      "describe",
@@ -66,5 +65,10 @@ setup(
     ],
     keywords=['benchmarking','earth system modeling','climate modeling','model intercomparison'],
     packages=packages,
-    scripts=['cmec-driver.py']
+    scripts=['cmec_driver/cmec_driver.py'],
+    entry_points={
+        "console_scripts": [
+            "cmec-driver=cmec_driver:main"
+        ]
+    }
 )
