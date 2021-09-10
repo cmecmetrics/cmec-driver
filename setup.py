@@ -3,9 +3,7 @@ from setuptools import find_packages, setup
 import subprocess
 import os
 
-import sys
-sys.path[0:0] = ['cmec_driver']
-from version import __version__
+exec(open('cmec_driver/version.py').read())
 
 with open("README.md", 'r') as f:
     long_description = f.read()
