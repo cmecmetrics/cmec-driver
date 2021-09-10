@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 import subprocess
 import os
 
-exec(open('cmec_driver/version.py').read())
+version = "1.0.0a5"
 
 with open("README.md", 'r') as f:
     long_description = f.read()
@@ -12,7 +12,7 @@ packages=find_packages()
 
 setup(
     name='cmec_driver',
-    version=__version__,
+    version=version,
     description='CMEC driver',
     long_description=long_description,
     url='https://github.com/cmecmetrics/cmec-driver.git',

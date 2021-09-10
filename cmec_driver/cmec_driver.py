@@ -51,10 +51,7 @@ import string
 import sys
 import os
 
-sys.path[0:0] = ['cmec_driver']
-from version import __version__
-
-version = __version__
+version = "1.0.0a5"
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
