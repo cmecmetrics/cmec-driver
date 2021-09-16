@@ -22,6 +22,10 @@ class MDTF_fieldlist():
                 if not row.lstrip().startswith("//")))
         self.fields = fields
         self.vars = fields["variables"]
+        if "plev" in self.fields["coords"]:
+            self.lev_coord = "plev"
+        elif "lev" in self.fields["coords"]:
+            self.lev_coord = "lev"
 
     def get_standard_name(self,varname):
         #TODO - figure how how much of string is numeric, ie for levels like 1000
@@ -29,9 +33,11 @@ class MDTF_fieldlist():
             varname = varname[0:-3]
         return self.vars[varname].get("standard_name",None)
 
-    def lookup_by_standard_name(self,standard_name):
+    def lookup_by_standard_name(self,standard_name,ndims):
         for item in self.vars:
             if self.vars[item].get("standard_name","") == standard_name:
+                if ("scalar_coord_templates" in self.vars[item]) and (ndims != 4):
+                    return self.vars[item]["scalar_coord_templates"][self.lev_coord].format(value = "")
                 return item
 
 def get_mdtf_env(pod_name, runtime_requirements):

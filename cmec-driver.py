@@ -342,8 +342,9 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
             module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
             module_dict[module]["dimensions"] = cmec_settings.get_setting("dimensions")
-            print(module_dict)
             data = cmec_settings.get_setting("data")
+            print(module_dict)
+            print("data: ", data)
             if data:
                 module_dict[module]["frequency"] = data["frequency"]
             else:
@@ -442,16 +443,21 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             for item in pod_settings:
                 script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
             convention = pod_settings.get("convention","")
-            # filename will use variable names specific to convention
+            # Filename will use variable names specific to convention
             flistname = "fieldlist_" + convention + ".jsonc"
             CONV = MDTF_fieldlist(module_dict[module]["mdtf_path"]/"data"/flistname)
             CONV.read()
             # Each data variable also becomes an env variable
             for varname in module_dict[module]["pod_varlist"]:
                 stnd_name = module_dict[module]["pod_varlist"][varname]["standard_name"]
-                conv_varname = CONV.lookup_by_standard_name(stnd_name)
+                # Dimensions help with picking correct 3d or 4d name
+                dim_len = len(module_dict[module]["pod_varlist"][varname]["dimensions"])
+                conv_varname = CONV.lookup_by_standard_name(stnd_name,dim_len)
                 if "scalar_coordinates" in module_dict[module]["pod_varlist"][varname]:
-                    conv_varname += str(module_dict[module]["pod_varlist"][varname]["scalar_coordinates"]["lev"])
+                    try:
+                        conv_varname += str(module_dict[module]["pod_varlist"][varname]["scalar_coordinates"]["lev"])
+                    except KeyError:
+                        conv_varname += str(module_dict[module]["pod_varlist"][varname]["scalar_coordinates"]["plev"])
                 script_lines.append("export %s=%s\n" % (varname+"_var",conv_varname))
                 env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], conv_varname, module_dict[module]["frequency"]))
                 env_path = modpath_full/Path(pod_settings["CASENAME"])/Path(module_dict[module]["frequency"])/env_basename
