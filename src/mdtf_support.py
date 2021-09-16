@@ -116,7 +116,9 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
         image_base = os.path.splitext(im_in)[0]
         im_out = image_base+"_MDTF_TEMP_%d.png"
         cmd = "source {0} && conda activate {1}/_MDTF_base && gs -dSAFER -dBATCH -dNOPAUSE -dEPSCrop -r150 -sDEVICE=png16m -dTextAlphaBits=4 -dGraphicsAlphaBits=4 -sOutputFile={2} {3}".format(conda_source,env_root,im_out,im_in)
-        os.system(cmd)
+        #os.system(cmd)
+        print("Converting figures to png.")
+        subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         out_images = [f for f in os.listdir(src_dir) if (os.path.basename(image_base) + "_MDTF_TEMP_" in f) and (f.endswith("png"))]
         # Clean up figure names and renumber when multiple figures generated
         if len(out_images) == 1:
@@ -132,7 +134,7 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
     move_list = [f for f in file_list if f.endswith(ext_list)]
     for f in move_list:
         cmd = "mv {0} {1}".format(os.path.join(src_dir,f),os.path.join(dst_dir,f))
-        os.system(cmd)
+        subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 def mdtf_copy_obs(obs_dir,wk_dir):
     """Copy obs images to output folder."""
