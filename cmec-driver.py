@@ -423,7 +423,6 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         script_lines.append("export CMEC_CODE_DIR=%s\n" % module_path_full)
         script_lines.append("export CMEC_OBS_DATA=%s\n" % obspath_full)
         script_lines.append("export CMEC_MODEL_DATA=%s\n" % modpath_full)
-        script_lines.append("export DATADIR=%s\n" % modpath_full)
         script_lines.append("export CMEC_WK_DIR=%s\n" % working_full)
         script_lines.append("export CMEC_CONFIG_DIR=%s\n" % config_full)
         script_lines.append("export CONDA_SOURCE=%s\n" % lib.get_conda_root())
@@ -434,6 +433,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             cmec_config = CMECConfig()
             cmec_config.read()
             pod_settings = cmec_config.get_module_settings(module)
+            script_lines.append("export DATADIR=%s\n" % str(Path(modpath_full)/pod_settings["CASENAME"]))
             script_lines.append("export OBS_DATA=%s\n" % obspath_full)
             script_lines.append("export POD_HOME=%s\n" % module_path_full)
             script_lines.append("export WK_DIR=%s\n" % working_full)
@@ -442,24 +442,18 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             for item in pod_settings:
                 script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
             convention = pod_settings.get("convention","")
-            if convention != "CMIP":
-                # filename will use variable names specific to convention
-                cmip = module_dict[module]["mdtf_path"]/"data"/"fieldlist_CMIP.jsonc"
-                CMIP = MDTF_fieldlist(cmip)
-                CMIP.read()
-                flistname = "fieldlist_" + convention + ".jsonc"
-                CONV = MDTF_fieldlist(module_dict[module]["mdtf_path"]/"data"/flistname)
-                CONV.read()
+            # filename will use variable names specific to convention
+            flistname = "fieldlist_" + convention + ".jsonc"
+            CONV = MDTF_fieldlist(module_dict[module]["mdtf_path"]/"data"/flistname)
+            CONV.read()
             # Each data variable also becomes an env variable
             for varname in module_dict[module]["pod_varlist"]:
-                if convention != "CMIP":
-                    stnd_name = CMIP.get_standard_name(varname)
-                    conv_varname = CONV.lookup_by_standard_name(stnd_name)
-                    script_lines.append("export %s=%s\n" % (varname+"_var",conv_varname))
-                    env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], conv_varname, module_dict[module]["frequency"]))
-                else:
-                    script_lines.append("export %s=%s\n" % (varname+"_var",varname))
-                    env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], varname, module_dict[module]["frequency"]))
+                stnd_name = module_dict[module]["pod_varlist"][varname]["standard_name"]
+                conv_varname = CONV.lookup_by_standard_name(stnd_name)
+                if "scalar_coordinates" in module_dict[module]["pod_varlist"][varname]:
+                    conv_varname += str(module_dict[module]["pod_varlist"][varname]["scalar_coordinates"]["lev"])
+                script_lines.append("export %s=%s\n" % (varname+"_var",conv_varname))
+                env_basename = Path("%s.%s.%s.nc" % (pod_settings["CASENAME"], conv_varname, module_dict[module]["frequency"]))
                 env_path = modpath_full/Path(pod_settings["CASENAME"])/Path(module_dict[module]["frequency"])/env_basename
                 env_var = varname.upper()+"_FILE"
                 script_lines.append("export %s=%s\n" % (env_var,env_path))
