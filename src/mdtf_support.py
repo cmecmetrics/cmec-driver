@@ -16,10 +16,16 @@ class MDTF_fieldlist():
         self.vars = ""
 
     def read(self):
-        with open(self.fieldlist_path,"r") as fieldlist_file:
-            fields = json.loads(
-                "\n".join(row.split("//",1)[0] for row in fieldlist_file \
-                if not row.lstrip().startswith("//")))
+        try:
+            with open(self.fieldlist_path,"r") as fieldlist_file:
+                fields = json.loads(
+                    "\n".join(row.split("//",1)[0] for row in fieldlist_file \
+                    if not row.lstrip().startswith("//")))
+            self.no_convention = False
+        except IOError:
+            print("Fieldlist not found. Setting convention to 'None'")
+            fields = {"variables": {},"coords": {}}
+            self.no_convention = True
         self.fields = fields
         self.vars = fields["variables"]
         if "plev" in self.fields["coords"]:
@@ -29,16 +35,32 @@ class MDTF_fieldlist():
 
     def get_standard_name(self,varname):
         #TODO - figure how how much of string is numeric, ie for levels like 1000
+        if self.no_convention:
+            return None
         if varname[-3:].isnumeric():
             varname = varname[0:-3]
         return self.vars[varname].get("standard_name",None)
 
     def lookup_by_standard_name(self,standard_name,ndims):
-        for item in self.vars:
-            if self.vars[item].get("standard_name","") == standard_name:
-                if ("scalar_coord_templates" in self.vars[item]) and (ndims != 4):
-                    return self.vars[item]["scalar_coord_templates"][self.lev_coord].format(value = "")
-                return item
+        def lookup_function(self,standard_name):
+            found = ""
+            for item in self.vars:
+                if self.vars[item].get("standard_name","") == standard_name:
+                    if ("scalar_coord_templates" in self.vars[item]) and (ndims != 4):
+                        found = self.vars[item]["scalar_coord_templates"][self.lev_coord].format(value = "")
+                    else:
+                        found = item
+            return found
+
+        if self.no_convention:
+            return None
+        found = lookup_function(self,standard_name)
+        # TODO: Need to swap precip variables for some conventions/modules?
+        if found == "" and standard_name == "precipitation_rate":
+            found = lookup_function(self,"precipitation_flux")
+        elif found == "" and standard_name == "precipitation_flux":
+            found = lookup_function(self,"precipitation_rate")
+        return found
 
 def get_mdtf_env(pod_name, runtime_requirements):
     """Return mdtf environment.
@@ -111,6 +133,7 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
     """Convert PS to PNG files for html page and move files to
     appropriate folder.
     """
+    print("Converting figures to png.")
     in_image_list = []
     ext_list = (".ps", ".PS", ".eps", ".EPS", ".pdf", ".PDF")
     file_list = os.listdir(src_dir)
@@ -123,7 +146,6 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
         im_out = image_base+"_MDTF_TEMP_%d.png"
         cmd = "source {0} && conda activate {1}/_MDTF_base && gs -dSAFER -dBATCH -dNOPAUSE -dEPSCrop -r150 -sDEVICE=png16m -dTextAlphaBits=4 -dGraphicsAlphaBits=4 -sOutputFile={2} {3}".format(conda_source,env_root,im_out,im_in)
         #os.system(cmd)
-        print("Converting figures to png.")
         subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         out_images = [f for f in os.listdir(src_dir) if (os.path.basename(image_base) + "_MDTF_TEMP_" in f) and (f.endswith("png"))]
         # Clean up figure names and renumber when multiple figures generated
@@ -144,20 +166,36 @@ def mdtf_ps_to_png(src_dir,dst_dir,conda_source,env_root):
 
 def mdtf_copy_obs(obs_dir,wk_dir):
     """Copy obs images to output folder."""
+    print("Copying obs figures.")
     ext_list = ('.png','.gif','.jpg','.jgep')
     for item in os.listdir(obs_dir):
         if item.endswith(ext_list):
             shutil.copy2(os.path.join(str(obs_dir),item),str(wk_dir/item))
 
+def mdtf_copy_banner(mdtf_path,wk_dir):
+    """Copy the banner image."""
+    banner_src = Path(mdtf_path)/"src"/"html"/"mdtf_diag_banner.png"
+    banner_dst = wk_dir.parents[0]/"mdtf_diag_banner.png"
+    if not banner_dst.exists():
+        print("Copying MDTF banner image.")
+        shutil.copy2(banner_src,banner_dst)
+
 def mdtf_file_cleanup(wk_dir,clear_ps,clear_nc):
     """Delete PS and netCDF if requested."""
     if clear_ps:
+        print("Deleting postscript images.")
         ps_dir = str(wk_dir/"model"/"PS")
         if os.path.exists(ps_dir):
             for item in os.listdir(ps_dir):
-                os.remove(os.path.join(ps_dir,item))
+                if os.path.isdir(os.path.join(ps_dir,item)):
+                    for sub_item in os.listdir(os.path.join(ps_dir,item)):
+                        os.remove(os.path.join(ps_dir,item,sub_item))
+                    os.rmdir(os.path.join(ps_dir,item))
+                else:
+                    os.remove(os.path.join(ps_dir,item))
             os.rmdir(ps_dir)
     if clear_nc:
+        print("Deleting intermediate netCDF files.")
         nc_dir = str(wk_dir/"model"/"netcdf")
         if os.path.exists(nc_dir):
             for item in os.listdir(nc_dir):
