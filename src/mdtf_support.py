@@ -34,9 +34,11 @@ class MDTF_fieldlist():
             self.lev_coord = "lev"
 
     def get_standard_name(self,varname):
-        #TODO - figure how how much of string is numeric, ie for levels like 1000
         if self.no_convention:
             return None
+        # Split off levels like "1000" or "850"
+        if varname[-4:].isnumeric():
+            varname = varname[0:-4]
         if varname[-3:].isnumeric():
             varname = varname[0:-3]
         return self.vars[varname].get("standard_name",None)

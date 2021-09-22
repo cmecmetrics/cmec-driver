@@ -10,6 +10,24 @@ import os
 
 from cmec_global_vars import *
 
+def user_prompt(question, default = "yes"):
+    """Asks the user a yes/no question
+
+    Args:
+        question (str): Question for the user
+    """
+    prompt = '[y/n] '
+    valid = {"yes": True, "y": True, "no": False, "n": False}
+
+    while True:
+        sys.stdout.write(question + " " + prompt)
+        choice = input().lower()
+        if choice == '':
+            return valid[default]
+        if choice in valid:
+            return valid[choice]
+    sys.stdout.write("Please respond 'y' or 'n' ")
+
 class CMECError(Exception):
     """Errors related to CMEC standards.
 
@@ -258,13 +276,11 @@ class CMECModuleSettings():
 
         # load existing cmec config or create new config
         config_file = CMECConfig()
-        try:
-            config_file.read()
-        except CMECError:
-            rewrite = user_prompt("Overwrite cmec.json?")
-            if not rewrite:
-                print("*** Skip writing default parameters. Warning: This may affect module performance. ***")
-                return
+        config_file.read()
+        rewrite = user_prompt("Overwrite cmec.json?")
+        if not rewrite:
+            print("*** Skip writing default parameters. Warning: This may affect module performance. ***")
+            return
         config_file.update(module_settings)
         config_file.write()
 
@@ -280,6 +296,10 @@ class CMECModuleSettings():
             return
         config_file.remove(config_name)
         config_file.write()
+
+    def insert_name(self,name):
+        """For MDTF PODs, change module name."""
+        self.jsettings["settings"]["name"] = name
 
     def get_name(self):
         """Returns the module name."""
