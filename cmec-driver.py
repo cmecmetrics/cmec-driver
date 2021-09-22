@@ -59,7 +59,7 @@ cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
 
 
-def user_prompt(question, default = "yes"):
+def user_prompt(question, default = "no"):
     """Asks the user a yes/no question
 
     Args:
