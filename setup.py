@@ -30,7 +30,6 @@ setup(
     ],
     keywords=['benchmarking','earth system modeling','climate modeling','model intercomparison'],
     packages=packages,
-    scripts=['cmec_driver/cmec_driver.py'],
     entry_points={
         "console_scripts": [
             "cmec-driver=cmec_driver:main"
