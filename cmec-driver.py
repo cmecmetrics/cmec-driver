@@ -338,12 +338,12 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             driver_found = True
 
         if module_dict[module]["mod_is_pod"]:
-            cmec_settings.insert_name(str(module_path.name))
             module_dict[module]["pod_varlist"] = cmec_settings.get_setting("varlist")
             module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
             module_dict[module]["pod_env_vars"] = cmec_settings.get_setting("settings").get("pod_env_vars",{})
             module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
             module_dict[module]["dimensions"] = cmec_settings.get_setting("dimensions")
+            module_dict[module]["alt_name"] = module_path.name
             data = cmec_settings.get_setting("data")
             #print(module_dict)
             #print("data: ", data)
@@ -436,9 +436,11 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             cmec_config = CMECConfig()
             cmec_config.read()
             pod_settings = cmec_config.get_module_settings(module)
+            if "CASENAME" not in pod_settings:
+                raise CMECError("'CASENAME' not found in module settings")
             script_lines.append("\n# MDTF POD settings\n")
             script_lines.append("export DATADIR=%s\n" % str(Path(modpath_full)/pod_settings["CASENAME"]))
-            script_lines.append("export OBS_DATA=%s\n" % obspath_full)
+            script_lines.append("export OBS_DATA=%s\n" % str(obspath_full/module_dict[module]["alt_name"]))
             script_lines.append("export POD_HOME=%s\n" % module_path_full)
             script_lines.append("export WK_DIR=%s\n" % working_full)
             script_lines.append("export RGB=%s\n" % str(Path(module_dict[module]["mdtf_path"])/"shared"/"rgb"))
@@ -452,6 +454,10 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             flistname = "fieldlist_" + convention + ".jsonc"
             CONV = MDTF_fieldlist(module_dict[module]["mdtf_path"]/"data"/flistname)
             CONV.read()
+            # Conventions have some of their own environment variables
+            conv_env_vars = CONV.get_env_vars()
+            for item in conv_env_vars:
+                script_lines.append("export %s=%s\n" % (item, conv_env_vars[item]))
             # Each data variable also becomes an env variable
             # Variable name depends on convention
             for varname in module_dict[module]["pod_varlist"]:
@@ -489,7 +495,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             script_lines.append("\nsource $CONDA_SOURCE\nconda activate $CONDA_ENV_ROOT/%s\n" % env_name)
 
             # Copy html page from module codebase
-            index_pod = cmec_settings.get_name() + ".html"
+            index_pod = module_dict[module]["alt_name"] + ".html"
             module_dict[module].update({"index": index_pod})
             src = module_path_full/index_pod
             dst = path_out/index_pod
@@ -534,12 +540,8 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             mdtf_file_cleanup(path_out,clear_ps,clear_nc)
         else: 
             index = "index.html"
-        # If index page doesn't exist, create default page
         result_list = os.listdir(path_out)
         result_list.remove("cmec_run.bash")
-        #if not (index in result_list) and not mod_is_pod:
-            #print("Generating default index.html")
-            #default_html_page(module, path_out/index)
         cmec_index.link_results(str(working_dir),str(working_dir/index))
 
     print("------------------------------------------------------------")

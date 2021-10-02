@@ -14,6 +14,7 @@ class MDTF_fieldlist():
         self.fieldlist_path = str(fpath)
         self.fields = ""
         self.vars = ""
+        self.env_vars = {}
 
     def read(self):
         try:
@@ -27,6 +28,7 @@ class MDTF_fieldlist():
             fields = {"variables": {},"coords": {}}
             self.no_convention = True
         self.fields = fields
+        self.env_vars = fields["env_vars"]
         self.vars = fields["variables"]
         if "plev" in self.fields["coords"]:
             self.lev_coord = "plev"
@@ -60,9 +62,14 @@ class MDTF_fieldlist():
         # TODO: Need to swap precip variables for some conventions/modules?
         if found == "" and standard_name == "precipitation_rate":
             found = lookup_function(self,"precipitation_flux")
+            print("\nWARNING: POD calls for precipitation_rate.\nInput precipitation will be used in place of precipitation_flux WITH NO UNITS CONVERSION!\n")
         elif found == "" and standard_name == "precipitation_flux":
             found = lookup_function(self,"precipitation_rate")
+            print("\nWARNING: POD calls for precipitation_flux.\nInput precipitation will be used in place of precipitation_rate WITH NO UNITS CONVERSION!\n")
         return found
+
+    def get_env_vars(self):
+        return self.env_vars
 
 def get_mdtf_env(pod_name, runtime_requirements):
     """Return mdtf environment.

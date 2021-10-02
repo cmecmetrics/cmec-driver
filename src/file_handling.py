@@ -297,10 +297,6 @@ class CMECModuleSettings():
         config_file.remove(config_name)
         config_file.write()
 
-    def insert_name(self,name):
-        """For MDTF PODs, change module name."""
-        self.jsettings["settings"]["name"] = name
-
     def get_name(self):
         """Returns the module name."""
         if "name" in self.jsettings["settings"]:
