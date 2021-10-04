@@ -115,15 +115,11 @@ def cmec_register(module_dir, config_file):
         print("Validating " + cmec_settings_name)
         cmec_settings.read_from_file(tmp_settings_name)
         str_name = cmec_settings.get_name()
-        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
-        cmec_settings.create_config()
 
     # or check if module contains a contents file
     elif cmec_toc.exists_in_module_path(module_dir):
         print("Validating " + cmec_toc_name)
         cmec_toc.read_from_module_path(module_dir)
-        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
-        cmec_toc.create_config(module_dir)
 
         str_name = cmec_toc.get_name()
         str_long_name = cmec_toc.get_long_name()
@@ -150,6 +146,14 @@ def cmec_register(module_dir, config_file):
 
     print("Writing CMEC library")
     lib.write()
+
+    # Write default settings to config
+    if cmec_settings:
+        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
+        cmec_settings.create_config(mod_is_pod=lib.is_pod(str_name))
+    elif cmec_toc:
+        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
+        cmec_toc.create_config(module_dir,mod_is_pod=lib.is_pod(str_name))
 
 
 def cmec_unregister(module_name, config_file):

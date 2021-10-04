@@ -260,7 +260,7 @@ class CMECModuleSettings():
                 # Replace missing names with driver script name
                 self.jsettings["settings"][key] = Path(self.jsettings["settings"]["driver"]).stem
 
-    def create_config(self, module_name=''):
+    def create_config(self, module_name='',mod_is_pod=False):
         """Adds module specific user settings to cmec config json."""
         config_name = self.get_name()
         if module_name != '':
@@ -271,6 +271,16 @@ class CMECModuleSettings():
         if 'default_parameters' in self.jsettings:
             module_config = self.jsettings['default_parameters']
             module_settings.update({config_name: module_config})
+        elif mod_is_pod:
+            module_settings.update({
+                config_name: {
+                    "CASENAME": "",
+                    "model": "",
+                    "convention": "",
+                    "FIRSTYR": None,
+                    "LASTYR": None
+                    }
+                })
         else:
             module_settings.update({config_name: {}})
 
@@ -420,14 +430,14 @@ class CMECModuleTOC():
 
         self.jcmec["contents"][config_name] = str(filepath)
 
-    def create_config(self, path_module):
+    def create_config(self, path_module, mod_is_pod=False):
         """Create module settings json for each configuration."""
         for item in self.jcontents:
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
                 path_settings = path_module / item
                 cmec_settings.read_from_file(path_settings)
-                cmec_settings.create_config(self.get_name())
+                cmec_settings.create_config(self.get_name(),mod_is_pod=mod_is_pod)
 
     def remove_config(self, path_module):
         for item in self.jcontents:
