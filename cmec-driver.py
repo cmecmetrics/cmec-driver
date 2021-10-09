@@ -72,27 +72,27 @@ def cmec_setup(conda_source=None,env_dir=None,clear_conda=False):
     if (conda_source is not None) | (env_dir is not None) | clear_conda:
         print("Reading CMEC library")
         lib = CMECLibrary()
-        lib.Read()
+        lib.read()
 
         if conda_source is not None:
             print("Validating conda install location")
             if not Path(conda_source).exists():
                 raise CMECError("Conda install location does not exist")
             print("Setting conda root")
-            lib.setCondaRoot(conda_source)
+            lib.set_conda_root(conda_source)
         if env_dir is not None:
             print("Validating environment directory")
             if not Path(env_dir).exists():
                 raise CMECError("Environment directory does not exist")
             print("Setting environment root")
-            lib.setEnvRoot(env_dir)
+            lib.set_env_root(env_dir)
         if clear_conda:
             print("Clearing conda settings")
-            lib.clearCondaRoot()
-            lib.clearEnvRoot()
+            lib.clear_conda_root()
+            lib.clear_env_root()
 
         print("Writing CMEC library")
-        lib.Write()
+        lib.write()
 
 def cmec_register(module_dir, config_file):
     """Add a module to the cmec library.
@@ -230,7 +230,6 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
     Todo:
     Handle case with no observations
-    Wrap text printed to cmec_run.bash
     """
 
     # Verify existence of each directory
@@ -265,9 +264,10 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     print("Identifying drivers")
 
     module_dict = {}
-    driver_found = False
 
     for module in module_list:
+        driver_found = False
+
         module_dict.update({module: {}})
 
         # Get name of base module
@@ -349,17 +349,16 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             module_dict[module]["dimensions"] = cmec_settings.get_setting("dimensions")
             module_dict[module]["alt_name"] = module_path.name
             data = cmec_settings.get_setting("data")
-            #print(module_dict)
-            #print("data: ", data)
             if data:
                 module_dict[module]["frequency"] = data["frequency"]
             else:
+                # See if frequency is provided for a variable
                 var1 = next(iter(module_dict[module]["pod_varlist"]))
                 module_dict[module]["frequency"] = module_dict[module]["pod_varlist"][var1]["frequency"]
 
-    # Check for zero drivers
-    if not driver_found:
-        raise CMECError("No driver files found")
+        # Check for zero drivers
+        if not driver_found:
+            raise CMECError("No driver file found for ",module)
 
     # Output driver file list
     print(
@@ -408,11 +407,16 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
     # Resolve file paths for cmec_run.bash
     modpath_full = modpath.resolve()
+    print("MODPATH", modpath)
     config_full = config_dir.resolve()
     if obspath is not None:
         obspath_full = obspath.resolve()
     else:
         obspath_full = "None"
+
+    # Read configuration file
+    cmec_config = CMECConfig()
+    cmec_config.read()
 
     # Create command scripts
     for module in module_dict:
@@ -423,6 +427,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         # Resolve paths for env variables if they exist:
         module_path_full = module_dict[module]["module_path"].resolve()
         working_full = path_out.resolve()
+        print("MODULE PATH", module_path_full)
 
         # Generate cmec_run.bash
         script_lines = []
@@ -437,8 +442,6 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
         if module_dict[module]["mod_is_pod"]:
             # Write pod env
-            cmec_config = CMECConfig()
-            cmec_config.read()
             pod_settings = cmec_config.get_module_settings(module)
             if "CASENAME" not in pod_settings:
                 raise CMECError("'CASENAME' not found in module settings")
@@ -453,6 +456,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 script_lines.append("export %s=%s\n" % (item, pod_settings[item]))
             for item in module_dict[module]["pod_env_vars"]:
                 script_lines.append("export %s=%s\n" % (item, module_dict[module]["pod_env_vars"][item]))
+
             convention = pod_settings.get("convention","None")
             # Filename will use variable names specific to convention
             flistname = "fieldlist_" + convention + ".jsonc"
@@ -483,7 +487,8 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 env_path = modpath_full/Path(pod_settings["CASENAME"])/Path(module_dict[module]["frequency"])/env_basename
                 env_var = varname.upper()+"_FILE"
                 script_lines.append("export %s=%s\n" % (env_var,env_path))
-            # remove unneeded levels for EOF_500hPa. By default use 'lev'
+            module_dict[module]["convention"] = CONV
+            # Remove unneeded levels for EOF_500hPa. By default use 'lev'
             if "plev" in module_dict[module]["dimensions"] and "lev" in module_dict[module]["dimensions"]:
                 pop_var = "plev"
                 if "USE_HYBRID_SIGMA" in module_dict[module]["pod_varlist"]:
@@ -530,18 +535,21 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
 
         # Generate index.html if not available
         # First find index name
-        if Path(path_out/"output.json").exists():
+        if (path_out/"output.json").exists():
             with open(Path(path_out/"output.json")) as output_json:
                 results = json.load(output_json)
             index = results.get("index","index.html")
         elif mod_is_pod:
             index = module_dict[module].get("index","index.html")
             mdtf_ps_to_png(path_out/"model"/"PS",path_out/"model",lib.get_conda_root(),lib.get_env_root())
-            mdtf_copy_obs(obspath_full,path_out/"obs")
+            mdtf_copy_obs(obspath_full/module_dict[module]["alt_name"],path_out/"obs")
             mdtf_copy_banner(module_dict[module]["mdtf_path"],path_out)
             clear_ps = not(pod_settings.get("save_ps",False))
             clear_nc = not(pod_settings.get("save_nc",False))
             mdtf_file_cleanup(path_out,clear_ps,clear_nc)
+            CONV = module_dict[module]["convention"]
+            varlist = module_dict[module]["pod_varlist"]
+            mdtf_rename_img(varlist,CONV,path_out/"model")
         else: 
             index = "index.html"
         result_list = os.listdir(path_out)
