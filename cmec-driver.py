@@ -401,7 +401,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         # Create new output directories directories
         path_out.mkdir(parents=True)
         if module_dict[module]["mod_is_pod"]:
-            for folder in [path_out/"model"/"netcdf", path_out/"model"/"PS", path_out/"obs"]:
+            for folder in [path_out/"model"/"netcdf", path_out/"model"/"PS", path_out/"obs"/"netcdf", path_out/"obs"/"PS"]:
                 path_out_tmp = folder
                 path_out_tmp.mkdir(parents=True)
 
@@ -470,7 +470,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             # Variable name depends on convention
             for varname in module_dict[module]["pod_varlist"]:
                 stnd_name = module_dict[module]["pod_varlist"][varname]["standard_name"]
-                if (stnd_name is not None) | (not module_dict[module]["pod_varlist"][varname].get("use_exact_name",False)): # has a convention
+                if (stnd_name is not None) and (not module_dict[module]["pod_varlist"][varname].get("use_exact_name",False)): # has a convention
                     # Dimensions help with picking correct 3d or 4d name
                     dim_len = len(module_dict[module]["pod_varlist"][varname]["dimensions"])
                     conv_varname = CONV.lookup_by_standard_name(stnd_name,dim_len)
@@ -508,7 +508,9 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
             module_dict[module].update({"index": index_pod})
             src = module_path_full/index_pod
             dst = path_out/index_pod
-            mdtf_copy_html(src,dst,pod_settings)
+            tmp_settings = pod_settings.copy()
+            tmp_settings.update(module_dict[module]["pod_env_vars"])
+            mdtf_copy_html(src,dst,tmp_settings)
 
         driver = module_dict[module]["driver_script"]
         if driver.suffix == ".py":

@@ -66,7 +66,7 @@ class MDTF_fieldlist():
             varname = varname[0:-3]
         return self.vars[varname].get("standard_name",None)
 
-    def lookup_by_standard_name(self,standard_name,ndims):
+    def lookup_by_standard_name(self,standard_name,ndims,suppress_warning=False):
         """Return the variable name from a convention based on the standard name.
         """
         def lookup_function(self,standard_name):
@@ -86,10 +86,12 @@ class MDTF_fieldlist():
         # convention, swap for the variable that is. No units conversions are done.
         if found == "" and standard_name == "precipitation_rate":
             found = lookup_function(self,"precipitation_flux")
-            print("\nWARNING: POD calls for precipitation_rate.\nprecipitation_flux variable will be used in place of precipitation_rate WITH NO UNITS CONVERSION!\n")
+            if not suppress_warning:
+                print("\nWARNING: POD calls for precipitation_rate.\nprecipitation_flux variable will be used in place of precipitation_rate WITH NO UNITS CONVERSION!\n")
         elif found == "" and standard_name == "precipitation_flux":
             found = lookup_function(self,"precipitation_rate")
-            print("\nWARNING: POD calls for precipitation_flux.\nprecipitation_rate variable will be used in place of precipitation_flux WITH NO UNITS CONVERSION!\n")
+            if not suppress_warning:
+                print("\nWARNING: POD calls for precipitation_flux.\nprecipitation_rate variable will be used in place of precipitation_flux WITH NO UNITS CONVERSION!\n")
         return found
 
     def get_env_vars(self):
@@ -100,9 +102,12 @@ def get_mdtf_env(pod_name, runtime_requirements):
     Some borrowing from MDTF environment manager script
     """
     mdtf_prefix = "_MDTF_"
-    if pod_name in ["convective_transition_diag","ENSO_MSE"]:
+    if "convective_transition_diag" in pod_name:
+        # This pod has unique env. Name doesn't match registered POD name.
+        return mdtf_prefix + "convective_transition_diag"
+    elif "ENSO_MSE" in pod_name:
         # This pod has unique env
-        return mdtf_prefix + pod_name
+        return mdtf_prefix + "ENSO_MSE"
     else:
         langs = [s.lower() for s in runtime_requirements]
         if ('r' in langs) or ('rscript' in langs):
@@ -185,21 +190,20 @@ def mdtf_rename_img(varlist,conv,img_dir):
     """Rename figure files to use variable names from settings file,
     not conventions."""
     for f in img_dir.iterdir():
-        print(f)
         f_name = str(f.name)
-        for pod_var in varlist:
-            standard_name = varlist[pod_var]["standard_name"]
-            dim_len = len(varlist[pod_var]["dimensions"])
-            conv_var = conv.lookup_by_standard_name(standard_name,dim_len)
-            if "scalar_coordinates" in varlist[pod_var]:
-                try:
-                    conv_var += str(varlist[pod_var]["scalar_coordinates"]["lev"])
-                except KeyError:
-                    conv_var += str(varlist[pod_var]["scalar_coordinates"]["plev"])
-            print(conv_var)
-            if conv_var in f_name:
-                f_new = img_dir/f_name.replace(conv_var,pod_var)
-                f.rename(f_new)
+        if not f_name.startswith("."):
+            for pod_var in varlist:
+                standard_name = varlist[pod_var]["standard_name"]
+                dim_len = len(varlist[pod_var]["dimensions"])
+                conv_var = conv.lookup_by_standard_name(standard_name,dim_len,suppress_warning=True)
+                if "scalar_coordinates" in varlist[pod_var]:
+                    try:
+                        conv_var += str(varlist[pod_var]["scalar_coordinates"]["lev"])
+                    except KeyError:
+                        conv_var += str(varlist[pod_var]["scalar_coordinates"]["plev"])
+                if (conv_var is not None) and ("_"+conv_var+".png" in f_name):
+                    f_new = img_dir/f_name.replace(conv_var,pod_var)
+                    f.rename(f_new)
 
 def mdtf_copy_obs(obs_dir,wk_dir):
     """Copy obs images to output folder."""
