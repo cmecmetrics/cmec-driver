@@ -42,16 +42,20 @@ class MDTF_fieldlist():
                     "\n".join(row.split("//",1)[0] for row in fieldlist_file \
                     if not row.lstrip().startswith("//")))
             self.no_convention = False
+            self.fields = fields
+            self.env_vars = fields["env_vars"]
+            self.vars = fields["variables"]
+            if "plev" in self.fields["coords"]:
+                self.lev_coord = "plev"
+            elif "lev" in self.fields["coords"]:
+                self.lev_coord = "lev"
         except IOError:
             print("Fieldlist not found. Setting convention to 'None'")
             fields = {"variables": {},"coords": {}}
             self.no_convention = True
-        self.fields = fields
-        self.env_vars = fields["env_vars"]
-        self.vars = fields["variables"]
-        if "plev" in self.fields["coords"]:
-            self.lev_coord = "plev"
-        elif "lev" in self.fields["coords"]:
+            self.fields = {}
+            self.env_vars = {}
+            self.vars = {}
             self.lev_coord = "lev"
 
     def get_standard_name(self,varname):
@@ -196,14 +200,15 @@ def mdtf_rename_img(varlist,conv,img_dir):
                 standard_name = varlist[pod_var]["standard_name"]
                 dim_len = len(varlist[pod_var]["dimensions"])
                 conv_var = conv.lookup_by_standard_name(standard_name,dim_len,suppress_warning=True)
-                if "scalar_coordinates" in varlist[pod_var]:
-                    try:
-                        conv_var += str(varlist[pod_var]["scalar_coordinates"]["lev"])
-                    except KeyError:
-                        conv_var += str(varlist[pod_var]["scalar_coordinates"]["plev"])
-                if (conv_var is not None) and ("_"+conv_var+".png" in f_name):
-                    f_new = img_dir/f_name.replace(conv_var,pod_var)
-                    f.rename(f_new)
+                if conv_var is not None:
+                    if "scalar_coordinates" in varlist[pod_var]:
+                        try:
+                            conv_var += str(varlist[pod_var]["scalar_coordinates"]["lev"])
+                        except KeyError:
+                            conv_var += str(varlist[pod_var]["scalar_coordinates"]["plev"])
+                    if ("_"+conv_var+".png" in f_name):
+                        f_new = img_dir/f_name.replace(conv_var,pod_var)
+                        f.rename(f_new)
 
 def mdtf_copy_obs(obs_dir,wk_dir):
     """Copy obs images to output folder."""
