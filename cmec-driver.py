@@ -99,6 +99,7 @@ def cmec_register(module_dir, config_file):
 
     Args:
         module_dir (str or Path): path to the module directory
+        config_file (str or Path): path to configuration file
     """
     print(module_dir)
     if not isinstance(module_dir, Path):
@@ -161,6 +162,7 @@ def cmec_unregister(module_name, config_file):
 
     Args:
         module_name (str): name of module to remove
+        config_file (str or Path): path to configuration file
     """
     print("Reading the CMEC library")
     lib = CMECLibrary()
@@ -388,7 +390,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         # Check for existence of output directories
         if path_out.exists():
             question = "Path " + str(path_out) + " already exists. Overwrite?"
-            overwrite = user_prompt(question, default="yes")
+            overwrite = user_prompt(question)
             if overwrite:
                 os_command = "rm -rf " + str(path_out)
                 subprocess.call(["rm","-rf",str(path_out)], shell=False)
