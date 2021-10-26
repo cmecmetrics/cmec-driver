@@ -32,7 +32,7 @@ setup(
     packages=packages,
     entry_points={
         "console_scripts": [
-            "cmec-driver=cmec_driver:main"
+            "cmec-driver=cmec_driver.cmec_driver:main"
         ]
     }
 )
