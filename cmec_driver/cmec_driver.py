@@ -51,7 +51,7 @@ import string
 import sys
 import os
 
-version = "1.0.0a5"
+version = "1.0.1"
 cmec_library_name = ".cmeclibrary"
 cmec_toc_name = "contents.json"
 cmec_settings_name = "settings.json"
