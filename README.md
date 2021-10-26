@@ -44,7 +44,7 @@ Remove a module from the cmec library.
 Example:   
 `cmec-driver unregister ILAMB`  
 
-**List** 
+**List**  
 List all the registered modules.   
 `cmec-driver list (--all)`  
 
@@ -61,5 +61,5 @@ Some modules allow settings to be modified. These settings can be changed in ~/.
 **Further instructions**  
 More detailed installation and set up instructions (including module-specific instructions) can be found in the [wiki](https://github.com/cmecmetrics/cmec-driver/wiki/Installation-and-Setup).
 
-**Find an issue?**
+**Find an issue?**  
 If you find a bug or run into a problem, please open a new Issue.  
