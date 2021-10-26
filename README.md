@@ -7,8 +7,16 @@ This driver is used for organizing evaluation modules on the local system.
 The driver only requires packages from the Python 3 standard library. The test module (test/cmec-test.py) requires numpy and xarray.
 
 ## Installation
-It is recommended that you create a new Python 3 environment to install the driver. Activate this environment, and from the cmec-driver directory do:
-`python setup.py install`
+It is recommended that you create a new Python 3 environment to install the driver. After creating and activating this environment, there are three ways to obtain the cmec-driver package:
+
+1. Use conda to install the package:  
+`conda install -c conda-forge cmec_driver`  
+  
+2. Clone this repository. Enter the cmec-driver directory and do:
+`pip install ./`
+  
+3. Download the most recent release of cmec-driver from github. Extract the source code, enter the cmec-driver directory, and do:  
+`pip install ./`
 
 After `cmec-driver register` is run for the first time, two hidden files will be created in your home directory (.cmeclibrary and .cmec/cmec.json).
 
@@ -52,3 +60,6 @@ Some modules allow settings to be modified. These settings can be changed in ~/.
 
 **Further instructions**  
 More detailed installation and set up instructions (including module-specific instructions) can be found in the [wiki](https://github.com/cmecmetrics/cmec-driver/wiki/Installation-and-Setup).
+
+**Find an issue?**
+If you find a bug or run into a problem, please open a new Issue.  
