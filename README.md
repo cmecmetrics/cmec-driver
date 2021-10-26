@@ -10,7 +10,7 @@ The driver only requires packages from the Python 3 standard library. The test m
 It is recommended that you create a new Python 3 environment to install the driver. Activate this environment, and from the cmec-driver directory do:
 `python setup.py install`
 
-After `cmec-driver.py register` is run for the first time, two hidden files will be created in your home directory (.cmeclibrary and .cmecconfig/cmec.json).
+After `cmec-driver.py register` is run for the first time, two hidden files will be created in your home directory (.cmeclibrary and .cmec/cmec.json).
 
 ## Test
 A test script is provided in the "/test" directory along with instructions in the test README.
@@ -29,6 +29,6 @@ The command line syntax is slightly different from past versions of cmec-driver.
 `cmec-driver.py run --obs <obs dir> <model dir> <working dir> <list of modules>`
 - The --obs directory is optional but other directories are required.
 
-Some modules allow settings to be modified. These settings can be changed in ~/.cmecconfig/cmec.json after the module is registered.
+Some modules allow settings to be modified. These settings can be changed in ~/.cmec/cmec.json after the module is registered.
 
 More detailed installation and set up instructions can be found in the [wiki](https://github.com/cmecmetrics/cmec-driver/wiki/Installation-and-Setup).
