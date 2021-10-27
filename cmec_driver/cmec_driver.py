@@ -7,17 +7,17 @@ Examples:
 
     Add conda source information::
 
-    $ python cmec-driver.py setup -conda_source <path_to_conda>
-    $ python cmec-driver.py setup -conda_source ~/miniconda3/etc/profile.d/conda.sh
+    $ python cmec-driver.py setup --conda_source <path_to_conda>
+    $ python cmec-driver.py setup --conda_source ~/miniconda3/etc/profile.d/conda.sh
 
     Add environment directory::
 
-    $ python cmec-driver.py setup -env_root <path_to_environments>
-    $ python cmec-driver.py setup -env_root ~/miniconda3/envs
+    $ python cmec-driver.py setup --env_root <path_to_environments>
+    $ python cmec-driver.py setup --env_root ~/miniconda3/envs
 
     Remove conda install information::
 
-    $ python cmec-driver.py setup -clear_conda
+    $ python cmec-driver.py setup --clear_conda
 
     Registering a module::
 
@@ -31,12 +31,12 @@ Examples:
 
     List modules::
 
-    $ python cmec-driver.py list -all
+    $ python cmec-driver.py list --all
 
     Run a module::
 
-    $ python cmec-driver.py run -obs <observations_folder> <model_folder> <output_folder> <module_name>
-    $ python cmec-driver.py run -obs ./obs ./model ./output PMP/meanclimate
+    $ python cmec-driver.py run --obs <observations_folder> <model_folder> <output_folder> <module_name>
+    $ python cmec-driver.py run --obs ./obs ./model ./output PMP/meanclimate
 
 Attributes:
     version (str): CMEC driver version
@@ -44,8 +44,6 @@ Attributes:
     cmec_toc_name (str): standard file name for module contents
     cmec_settings_name (str): standard file name for module settings
 
-Todo:
-Add tests
 """
 from pathlib import Path
 import glob
@@ -55,21 +53,24 @@ import subprocess
 import sys
 import os
 
+
 sys.path.insert(0,"./src")
 from file_handling import *
 from mdtf_support import *
 from utils import *
 from cmec_global_vars import *
 
-def cmec_setup(conda_source=None,env_dir=None,clear_conda=False):
+def cmec_setup(conda_source=None,env_dir=None,clear_conda=False,print_conda=False):
     """Set up conda environment.
     Args:
         **kwargs:
             conda_source (str): path to conda installation directory
             env_dir (str): path to conda environment folder
             clear_conda (bool): to clear conda_source from library
+            env_dir (str):
+            print_conda (bool):
     """
-    if (conda_source is not None) | (env_dir is not None) | clear_conda:
+    if (conda_source is not None) | (env_dir is not None) | clear_conda | print_conda:
         print("Reading CMEC library")
         lib = CMECLibrary()
         lib.read()
@@ -90,9 +91,14 @@ def cmec_setup(conda_source=None,env_dir=None,clear_conda=False):
             print("Clearing conda settings")
             lib.clear_conda_root()
             lib.clear_env_root()
+        if print_conda:
+            print("Conda settings:")
+            print("  Source: ",lib.get_conda_root())
+            print("  Environments: ",lib.get_env_root())
 
-        print("Writing CMEC library")
-        lib.write()
+        if (conda_source is not None) | (env_dir is not None) | clear_conda:
+            print("Writing CMEC library")
+            lib.write()
 
 def cmec_register(module_dir, config_file):
     """Add a module to the cmec library.
@@ -101,10 +107,10 @@ def cmec_register(module_dir, config_file):
         module_dir (str or Path): path to the module directory
         config_file (str or Path): path to configuration file
     """
-    print(module_dir)
     if not isinstance(module_dir, Path):
         module_dir = Path(module_dir)
-
+    module_dir = module_dir.resolve()
+    print(module_dir)
     print("Registering " + str(module_dir))
 
     cmec_settings = CMECModuleSettings()
@@ -116,12 +122,10 @@ def cmec_register(module_dir, config_file):
         print("Validating " + cmec_settings_name)
         cmec_settings.read_from_file(tmp_settings_name)
         str_name = cmec_settings.get_name()
-
     # or check if module contains a contents file
     elif cmec_toc.exists_in_module_path(module_dir):
         print("Validating " + cmec_toc_name)
         cmec_toc.read_from_module_path(module_dir)
-
         str_name = cmec_toc.get_name()
         str_long_name = cmec_toc.get_long_name()
 
@@ -593,14 +597,14 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     cmec_index.write()
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(
         description="Process command line cmec-driver input")
     # Create subparsers for register, unregister, list, and run commands
     subparsers = parser.add_subparsers(
-        help="commands are 'install', 'register', 'unregister', 'run', 'list'",
+        help="commands are 'setup', 'install', 'register', 'unregister', 'run', 'list'",
         dest="command")
     parser_inst = subparsers.add_parser(
         "setup", help="register conda installation directory")
@@ -613,14 +617,15 @@ if __name__ == "__main__":
     parser_run = subparsers.add_parser(
         "run", help="run chosen modules")
 
-    parser_inst.add_argument("-conda_source", default=None, type=str)
-    parser_inst.add_argument("-env_root", default=None, type=str)
-    parser_inst.add_argument("-clear_conda", action="store_true", default=False)
+    parser_inst.add_argument("--conda_source", default=None, type=str)
+    parser_inst.add_argument("--env_root", default=None, type=str)
+    parser_inst.add_argument("--clear_conda", action="store_true", default=False)
+    parser_inst.add_argument("--print_conda",action="store_true",default=False)
     parser_reg.add_argument("modpath", type=str)
     parser_unreg.add_argument("module")
-    parser_list.add_argument("-all", action="store_true", default=False,
+    parser_list.add_argument("--all", action="store_true", default=False,
         help="list modules and configurations")
-    parser_run.add_argument("-obs", default="", help="observations directory")
+    parser_run.add_argument("--obs", default="", help="observations directory")
     parser_run.add_argument("model", help="model directory")
     parser_run.add_argument("output", help="output directory")
     parser_run.add_argument("module", nargs="+", help="module names")
@@ -629,28 +634,29 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # cmec config goes in cmec-driver/config folder
-    config_file = Path(__file__).absolute().parents[0] / Path("config/cmec.json")
+    config_file = Path.home()/".cmec"/"cmec.json"
 
     # Install
     if args.command == "setup":
         cmec_setup(
             conda_source=args.conda_source,
             env_dir=args.env_root,
-            clear_conda=args.clear_conda)
+            clear_conda=args.clear_conda,
+            print_conda=args.print_conda)
 
     # Register
     if args.command == "register":
         if args.modpath:
             cmec_register(args.modpath, config_file)
         else:
-            print("Usage: python cmec-driver.py register <mod dir>")
+            print("Usage: cmec-driver register <mod dir>")
 
     # Unregister
     if args.command == "unregister":
         if args.module:
             cmec_unregister(args.module, config_file)
         else:
-            print("Usage: python cmec-driver.py unregister <mod dir>")
+            print("Usage: cmec-driver unregister <mod name>")
 
     # List
     if args.command == "list":
@@ -659,7 +665,7 @@ if __name__ == "__main__":
         elif not args.all:
             cmec_list(False)
         else:
-            print("Usage: python cmec-driver.py list -all")
+            print("Usage: cmec-driver list --all")
 
     # Execute
     if args.command == "run":
@@ -670,5 +676,8 @@ if __name__ == "__main__":
             cmec_run(args.model, args.output, args.module, config_dir)
         else:
             print(
-                "Usage: python cmec-driver.py run "
-                + "-obs <obs dir> <model dir> <out dir> <mod names>")
+                "Usage: cmec-driver run "
+                + "--obs <obs dir> <model dir> <out dir> <mod names>")
+
+if __name__ == "__main__":
+    main()
