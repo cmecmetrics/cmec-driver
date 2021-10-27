@@ -8,7 +8,7 @@ import subprocess
 import sys
 import os
 
-from cmec_global_vars import *
+from cmec_driver.cmec_global_vars import *
 
 def user_prompt(question, default = "yes"):
     """Asks the user a yes/no question
