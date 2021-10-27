@@ -260,7 +260,7 @@ class CMECModuleSettings():
                 # Replace missing names with driver script name
                 self.jsettings["settings"][key] = Path(self.jsettings["settings"]["driver"]).stem
 
-    def create_config(self, module_name='',mod_is_pod=False):
+    def create_config(self, config_file, module_name='',mod_is_pod=False):
         """Adds module specific user settings to cmec config json."""
         config_name = self.get_name()
         if module_name != '':
@@ -285,7 +285,7 @@ class CMECModuleSettings():
             module_settings.update({config_name: {}})
 
         # load existing cmec config or create new config
-        config_file = CMECConfig()
+        config_file = CMECConfig(config_file)
         config_file.read()
         rewrite = user_prompt("Overwrite cmec.json?")
         if not rewrite:
@@ -294,11 +294,11 @@ class CMECModuleSettings():
         config_file.update(module_settings)
         config_file.write()
 
-    def remove_config(self, module_name=''):
+    def remove_config(self, config_file, module_name=''):
         config_name = self.get_name()
         if module_name != '':
             config_name = module_name + '/' + config_name
-        config_file = CMECConfig()
+        config_file = CMECConfig(config_file)
         try:
             config_file.read()
         except CMECError:
@@ -430,14 +430,14 @@ class CMECModuleTOC():
 
         self.jcmec["contents"][config_name] = str(filepath)
 
-    def create_config(self, path_module, mod_is_pod=False):
+    def create_config(self, config_file, path_module, mod_is_pod=False):
         """Create module settings json for each configuration."""
         for item in self.jcontents:
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
                 path_settings = path_module / item
                 cmec_settings.read_from_file(path_settings)
-                cmec_settings.create_config(self.get_name(),mod_is_pod=mod_is_pod)
+                cmec_settings.create_config(config_file, self.get_name(),mod_is_pod=mod_is_pod)
 
     def remove_config(self, path_module):
         for item in self.jcontents:
@@ -510,8 +510,8 @@ class CMECIndex():
 
 class CMECConfig():
     """Access CMEC config file cmec.json"""
-    def __init__(self):
-        self.path = Path(__file__).absolute().parents[1] / Path("config/cmec.json")
+    def __init__(self,config_file):
+        self.path = config_file
         if not self.path.exists():
             with open(self.path,"w") as cfile:
                 json.dump({}, cfile, indent=4)
@@ -521,7 +521,7 @@ class CMECConfig():
             with open(self.path, "r") as cfile:
                 all_settings = json.load(cfile)
         except json.decoder.JSONDecodeError:
-            raise CMECError("Could not load config/cmec.json. File might not be valid JSON")
+            raise CMECError("Could not load {0}. File might not be valid JSON".format(self.path))
 
         # enforce dictionary if config is empty
         if isinstance(all_settings, dict):

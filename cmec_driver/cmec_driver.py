@@ -151,11 +151,11 @@ def cmec_register(module_dir, config_file):
 
     # Write default settings to config
     if cmec_settings:
-        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
-        cmec_settings.create_config(mod_is_pod=lib.is_pod(str_name))
+        print("Writing default settings to " + str(config_file))
+        cmec_settings.create_config(config_file,mod_is_pod=lib.is_pod(str_name))
     elif cmec_toc:
-        print("Writing default settings to " + str(config_file.relative_to(Path.cwd())))
-        cmec_toc.create_config(module_dir,mod_is_pod=lib.is_pod(str_name))
+        print("Writing default settings to " + str(config_file))
+        cmec_toc.create_config(config_file,module_dir,mod_is_pod=lib.is_pod(str_name))
 
 
 def cmec_unregister(module_name, config_file):
@@ -176,10 +176,10 @@ def cmec_unregister(module_name, config_file):
     tmp_settings_name = cmec_settings.exists_in_module_path(module_dir)
     if tmp_settings_name:
         cmec_settings.read_from_file(tmp_settings_name)
-        cmec_settings.remove_config()
+        cmec_settings.remove_config(config_file)
     elif cmec_toc.exists_in_module_path(module_dir):
         cmec_toc.read_from_module_path(module_dir)
-        cmec_toc.remove_config(module_dir)
+        cmec_toc.remove_config(config_file,module_dir)
 
     print("Removing module")
     lib.remove(module_name)
