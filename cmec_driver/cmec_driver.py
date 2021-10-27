@@ -7,13 +7,13 @@ Examples:
 
     Add conda source information::
 
-    $ python cmec-driver.py setup --conda_source <path_to_conda>
-    $ python cmec-driver.py setup --conda_source ~/miniconda3/etc/profile.d/conda.sh
+    $ cmec-driver setup --conda_source <path_to_conda>
+    $ cmec-driver setup --conda_source ~/miniconda3/etc/profile.d/conda.sh
 
     Add environment directory::
 
-    $ python cmec-driver.py setup --env_root <path_to_environments>
-    $ python cmec-driver.py setup --env_root ~/miniconda3/envs
+    $ cmec-driver setup --env_root <path_to_environments>
+    $ cmec-driver setup --env_root ~/miniconda3/envs
 
     Remove conda install information::
 
@@ -21,22 +21,22 @@ Examples:
 
     Registering a module::
 
-    $ python cmec-driver.py register <module_directory_path>
-    $ python cmec-driver.py register ~/modules/ILAMB
+    $ cmec-driver register <module_directory_path>
+    $ cmec-driver register ~/modules/ILAMB
 
     Unregistering a module::
 
-    $ python cmec-driver.py unregister <module_name>
-    $ python cmec-driver.py unregister ILAMB
+    $ cmec-driver unregister <module_name>
+    $ cmec-driver unregister ILAMB
 
     List modules::
 
-    $ python cmec-driver.py list --all
+    $ cmec-driver list --all
 
     Run a module::
 
-    $ python cmec-driver.py run --obs <observations_folder> <model_folder> <output_folder> <module_name>
-    $ python cmec-driver.py run --obs ./obs ./model ./output PMP/meanclimate
+    $ cmec-driver run --obs <observations_folder> <model_folder> <output_folder> <module_name>
+    $ cmec-driver run --obs ./obs ./model ./output PMP/meanclimate
 
 Attributes:
     version (str): CMEC driver version
@@ -53,12 +53,9 @@ import subprocess
 import sys
 import os
 
-
-sys.path.insert(0,"./src")
-from file_handling import *
-from mdtf_support import *
-from utils import *
-from cmec_global_vars import *
+from cmec_driver.file_handling import *
+from cmec_driver.mdtf_support import *
+from cmec_driver.cmec_global_vars import *
 
 def cmec_setup(conda_source=None,env_dir=None,clear_conda=False,print_conda=False):
     """Set up conda environment.
@@ -634,7 +631,7 @@ def main():
     args = parser.parse_args()
 
     # cmec config goes in cmec-driver/config folder
-    config_file = Path.home()/".cmec"/"cmec.json"
+    config_file = Path.home()/cmec_config_dir/"cmec.json"
 
     # Install
     if args.command == "setup":
