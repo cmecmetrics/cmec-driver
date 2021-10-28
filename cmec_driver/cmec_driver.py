@@ -222,7 +222,7 @@ def cmec_list(listAll):
     print("------------------------------------------------------------")
 
 
-def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
+def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir=""):
     """Run a module from the cmec library.
 
     Args:
@@ -255,6 +255,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
     obspath = dir_list.get("Observations")
     modpath = dir_list.get("Model")
     workpath = dir_list.get("Working")
+    config_dir = config_file.parents[0]
 
     # Load the CMEC library
     print("Reading CMEC library")
@@ -415,7 +416,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
         obspath_full = "None"
 
     # Read configuration file
-    cmec_config = CMECConfig()
+    cmec_config = CMECConfig(config_file)
     cmec_config.read()
 
     # Create command scripts
@@ -511,7 +512,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_dir, strObsDir=""):
                 if "USE_HYBRID_SIGMA" in varlist:
                     if varlist["USE_HYBRID_SIGMA"] == 0:
                         pop_var = "lev"
-                dimesions.pop(pop_var)
+                dimensions.pop(pop_var)
             # Env variables for dimensions (e.g. lat, lon, time)
             for dim in dimensions:
                 env_var = dim
@@ -666,11 +667,10 @@ def main():
 
     # Execute
     if args.command == "run":
-        config_dir = config_file.parents[0]
         if (args.obs and args.model and args.output and args.module):
-            cmec_run(args.model, args.output, args.module, config_dir, args.obs)
+            cmec_run(args.model, args.output, args.module, config_file, args.obs)
         elif (args.model and args.output and args.module):
-            cmec_run(args.model, args.output, args.module, config_dir)
+            cmec_run(args.model, args.output, args.module, config_file)
         else:
             print(
                 "Usage: cmec-driver run "
