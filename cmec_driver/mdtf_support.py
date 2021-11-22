@@ -282,7 +282,7 @@ def set_up_pod(module,module_dict,cmec_config,script_lines,modpath_full,obspath_
     script_lines.append(ex_str % ("OBS_DATA", obspath_full/alt_name))
     script_lines.append(ex_str % ("POD_HOME", module_path_full))
     script_lines.append(ex_str % ("WK_DIR", working_full))
-    script_lines.append(ex_str % ("RGP", mdtf_path/"shared"/"rgb"))
+    script_lines.append(ex_str % ("RGB", mdtf_path/"shared"/"rgb"))
     # Each setting becomes an env variable
     for item in pod_settings:
         script_lines.append(ex_str % (item, pod_settings[item]))
