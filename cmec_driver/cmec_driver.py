@@ -55,7 +55,7 @@ import subprocess
 import sys
 import os
 
-from cmec_driver.file_handling import *
+from cmec_driver.cmec_io import *
 from cmec_driver.mdtf_support import *
 from cmec_driver.cmec_global_vars import *
 
