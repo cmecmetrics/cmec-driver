@@ -309,13 +309,13 @@ def set_up_pod(module,module_dict,cmec_config,script_lines,modpath_full,obspath_
             dim_len = len(varlist[varname]["dimensions"])
             conv_varname = CONV.lookup_by_standard_name(stnd_name,dim_len)
             file_varname = conv_varname
-        if "scalar_coordinates" in varlist[varname]:
-            try:
-                file_varname += str(
-                    varlist[varname]["scalar_coordinates"]["lev"])
-            except KeyError:
-                file_varname += str(
-                    varlist[varname]["scalar_coordinates"]["plev"])
+            if "scalar_coordinates" in varlist[varname]:
+                try:
+                    file_varname += str(
+                        varlist[varname]["scalar_coordinates"]["lev"])
+                except KeyError:
+                    file_varname += str(
+                        varlist[varname]["scalar_coordinates"]["plev"])
         script_lines.append(ex_str % (varname+"_var",file_varname))
         env_basename = Path("%s.%s.%s.nc" % (casename, file_varname, frequency))
                 
