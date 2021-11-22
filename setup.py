@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 import subprocess
 import os
 
-version = "1.0.2"
+from cmec_driver.cmec_global_vars import version
 
 with open("README.md", 'r') as f:
     long_description = f.read()
@@ -19,7 +19,7 @@ setup(
     author='Paul Ullrich and Ana Ordonez',
     author_email='ordonez4@llnl.gov',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering',
         'License :: OSI Approved :: BSD 3-Clause License',
