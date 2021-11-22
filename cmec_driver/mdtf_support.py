@@ -1,4 +1,5 @@
 """
+Functions to help with running the MDTF PODs.
 """
 from pathlib import Path
 import glob
@@ -32,6 +33,7 @@ class MDTF_fieldlist():
         self.fields = ""
         self.vars = ""
         self.env_vars = {}
+        self.no_convention = None
 
     def read(self):
         """Load the convention file contents and save key values.
@@ -100,10 +102,15 @@ class MDTF_fieldlist():
 
     def get_env_vars(self):
         return self.env_vars
+        
+    def is_convention(self):
+        return not(self.no_convention)
+            
 
 def get_mdtf_env(pod_name, runtime_requirements):
-    """Return mdtf environment.
-    Some borrowing from MDTF environment manager script
+    """Return mdtf environment. Environment name is based on
+    language in settings most of the time, but some pods have
+    specific environments.
     """
     mdtf_prefix = "_MDTF_"
     if "convective_transition_diag" in pod_name:
@@ -238,3 +245,111 @@ def mdtf_file_cleanup(wk_dir,clear_ps,clear_nc):
         print("Deleting intermediate netCDF files.")
         nc_dir = wk_dir/"model"/"netcdf"
         remove_directory(nc_dir)
+
+def set_up_pod(module,module_dict,cmec_config,script_lines,modpath_full,obspath_full):
+    """This function handles writing a section of the cmec_run.bash script which
+    is unique to the MDTF PODs.
+
+    Args:
+        module (str): Module name
+        module_dict (dict): Dictionary of module settings
+        cmec_config (CMECConfig): CMEC configuration object
+        script_lines (list): List of strings for cmec_run.bash text
+        modpath_full (Path): Model data directory
+        obspath_full (Path): Observation data directory
+    """
+    path_out = module_dict[module]["working_dir_full"]
+    module_path_full = module_dict[module]["module_path"].resolve()
+    working_full = path_out.resolve()
+    
+    # Get pod settings and create aliases
+    pod_settings = cmec_config.get_module_settings(module)
+    if "CASENAME" not in pod_settings:
+        raise CMECError("'CASENAME' not found in module settings")
+
+    casename = pod_settings["CASENAME"]
+    varlist = module_dict[module]["pod_varlist"]
+    frequency = module_dict[module]["frequency"]
+    dimensions = module_dict[module]["dimensions"]
+    alt_name = module_dict[module]["alt_name"]
+    mdtf_path = Path(module_dict[module]["mdtf_path"])
+    pod_env_vars = module_dict[module]["pod_env_vars"]
+
+    # Start writing MDTF environment variables
+    ex_str = "export %s=%s\n"
+    script_lines.append("\n# MDTF POD settings\n")
+    script_lines.append(ex_str % ("DATADIR", modpath_full/casename))
+    script_lines.append(ex_str % ("OBS_DATA", obspath_full/alt_name))
+    script_lines.append(ex_str % ("POD_HOME", module_path_full))
+    script_lines.append(ex_str % ("WK_DIR", working_full))
+    script_lines.append(ex_str % ("RGP", mdtf_path/"shared"/"rgb"))
+    # Each setting becomes an env variable
+    for item in pod_settings:
+        script_lines.append(ex_str % (item, pod_settings[item]))
+    for item in pod_env_vars:
+        script_lines.append(ex_str % (item, pod_env_vars[item]))
+
+    # Use convention to translate variable names
+    convention = pod_settings.get("convention","None")
+    flistname = "fieldlist_" + convention + ".jsonc"
+    CONV = MDTF_fieldlist(mdtf_path/"data"/flistname)
+    CONV.read()
+    conv_env_vars = CONV.get_env_vars()
+    for item in conv_env_vars:
+        script_lines.append(ex_str % (item, conv_env_vars[item]))
+    # Each data variable also becomes an env variable
+    # Variable name depends on convention
+    for varname in varlist:
+        stnd_name = varlist[varname]["standard_name"]
+        file_varname = varname
+        # Translate name for convention
+        if (CONV.is_convention()) and (stnd_name is not None) and \
+           (not varlist[varname].get("use_exact_name",False)):
+            # Dimensions help with picking correct 3d or 4d name
+            dim_len = len(varlist[varname]["dimensions"])
+            conv_varname = CONV.lookup_by_standard_name(stnd_name,dim_len)
+            file_varname = conv_varname
+        if "scalar_coordinates" in varlist[varname]:
+            try:
+                file_varname += str(
+                    varlist[varname]["scalar_coordinates"]["lev"])
+            except KeyError:
+                file_varname += str(
+                    varlist[varname]["scalar_coordinates"]["plev"])
+        script_lines.append(ex_str % (varname+"_var",file_varname))
+        env_basename = Path("%s.%s.%s.nc" % (casename, file_varname, frequency))
+                
+        # Environment variable for data path for this variable
+        env_path = modpath_full/casename/frequency/env_basename
+        env_var = varname.upper()+"_FILE"
+        script_lines.append(ex_str % (env_var,env_path))
+            
+    # Saving for later for image management
+    module_dict[module]["convention"] = CONV
+
+    # Remove unneeded levels for hybrid sigma case. By default use 'lev'
+    if "plev" in dimensions and "lev" in dimensions:
+        pop_var = "plev"
+        if "USE_HYBRID_SIGMA" in varlist:
+            if varlist["USE_HYBRID_SIGMA"] == 0:
+                pop_var = "lev"
+        dimensions.pop(pop_var)
+    # Env variables for dimensions (e.g. lat, lon, time)
+    for dim in dimensions:
+        env_var = dim
+        script_lines.append("export %s_coord=%s\n" % (env_var,env_var))
+
+    # Need to activate conda env here since MDTF driver scripts don't do it
+    env_name = get_mdtf_env(module, module_dict[module]["runtime"])
+    script_lines.append("\nsource $CONDA_SOURCE\nconda activate $CONDA_ENV_ROOT/%s\n" % env_name)
+
+    # Copy html page from module codebase
+    index_pod = alt_name + ".html"
+    module_dict[module].update({"index": index_pod})
+    src = module_path_full/index_pod
+    dst = path_out/index_pod
+    tmp_settings = pod_settings.copy()
+    tmp_settings.update(pod_env_vars)
+    mdtf_copy_html(src,dst,tmp_settings)
+    
+    return module_dict,script_lines

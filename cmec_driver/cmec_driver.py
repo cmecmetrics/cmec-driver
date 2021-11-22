@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 CMEC driver
 
@@ -343,6 +345,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
         if module_dict[module]["driver_script"]:
             driver_found = True
 
+        # Save more settings if POD
         if module_dict[module]["mod_is_pod"]:
             module_dict[module]["pod_varlist"] = cmec_settings.get_setting("varlist")
             module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
@@ -440,96 +443,13 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
         script_lines.append("export CONDA_ENV_ROOT=%s\n" % lib.get_env_root())
 
         if module_dict[module]["mod_is_pod"]:
-            # Get pod settings and create aliases
-            pod_settings = cmec_config.get_module_settings(module)
-            if "CASENAME" not in pod_settings:
-                raise CMECError("'CASENAME' not found in module settings")
-
-            casename = pod_settings["CASENAME"]
-            varlist = module_dict[module]["pod_varlist"]
-            frequency = module_dict[module]["frequency"]
-            dimensions = module_dict[module]["dimensions"]
-            alt_name = module_dict[module]["alt_name"]
-            mdtf_path = Path(module_dict[module]["mdtf_path"])
-            pod_env_vars = module_dict[module]["pod_env_vars"]
-
-            # Start writing MDTF environment variables
-            ex_str = "export %s=%s\n"
-            script_lines.append("\n# MDTF POD settings\n")
-            script_lines.append(ex_str % ("DATADIR", modpath_full/casename))
-            script_lines.append(ex_str % ("OBS_DATA", obspath_full/alt_name))
-            script_lines.append(ex_str % ("POD_HOME", module_path_full))
-            script_lines.append(ex_str % ("WK_DIR", working_full))
-            script_lines.append(ex_str % ("RGP", mdtf_path/"shared"/"rgb"))
-            # Each setting becomes an env variable
-            for item in pod_settings:
-                script_lines.append(ex_str % (item, pod_settings[item]))
-            for item in pod_env_vars:
-                script_lines.append(ex_str % (item, pod_env_vars[item]))
-
-            # Use convention to translate variable names
-            convention = pod_settings.get("convention","None")
-            flistname = "fieldlist_" + convention + ".jsonc"
-            CONV = MDTF_fieldlist(mdtf_path/"data"/flistname)
-            CONV.read()
-            conv_env_vars = CONV.get_env_vars()
-            for item in conv_env_vars:
-                script_lines.append(ex_str % (item, conv_env_vars[item]))
-            # Each data variable also becomes an env variable
-            # Variable name depends on convention
-            for varname in varlist:
-                stnd_name = varlist[varname]["standard_name"]
-                if (convention != "None") and (stnd_name is not None) and \
-                   (not varlist[varname].get("use_exact_name",False)):
-                    # Dimensions help with picking correct 3d or 4d name
-                    dim_len = len(varlist[varname]["dimensions"])
-                    conv_varname = CONV.lookup_by_standard_name(stnd_name,dim_len)
-                    if "scalar_coordinates" in varlist[varname]:
-                        try:
-                            conv_varname += str(
-                                varlist[varname]["scalar_coordinates"]["lev"])
-                        except KeyError:
-                            conv_varname += str(
-                                varlist[varname]["scalar_coordinates"]["plev"])
-                    # Environment variable for variable name lookup
-                    script_lines.append(ex_str % (varname+"_var",conv_varname))
-                    # Construct data file name
-                    env_basename = Path("%s.%s.%s.nc" % (casename, conv_varname, frequency))
-                else:
-                    # no convention, or use_exact_name
-                    script_lines.append(ex_str % (varname+"_var",varname))
-                    env_basename = Path("%s.%s.%s.nc" % (casename, varname, frequency))
-                # Environment variable for data path for this variable
-                env_path = modpath_full/casename/frequency/env_basename
-                env_var = varname.upper()+"_FILE"
-                script_lines.append(ex_str % (env_var,env_path))
-            # Used lated for image management
-            module_dict[module]["convention"] = CONV
-
-            # Remove unneeded levels for hybrid sigma case. By default use 'lev'
-            if "plev" in dimensions and "lev" in dimensions:
-                pop_var = "plev"
-                if "USE_HYBRID_SIGMA" in varlist:
-                    if varlist["USE_HYBRID_SIGMA"] == 0:
-                        pop_var = "lev"
-                dimensions.pop(pop_var)
-            # Env variables for dimensions (e.g. lat, lon, time)
-            for dim in dimensions:
-                env_var = dim
-                script_lines.append("export %s_coord=%s\n" % (env_var,env_var))
-
-            # Need to activate conda env here since MDTF driver scripts don't do it
-            env_name = get_mdtf_env(module, module_dict[module]["runtime"])
-            script_lines.append("\nsource $CONDA_SOURCE\nconda activate $CONDA_ENV_ROOT/%s\n" % env_name)
-
-            # Copy html page from module codebase
-            index_pod = alt_name + ".html"
-            module_dict[module].update({"index": index_pod})
-            src = module_path_full/index_pod
-            dst = path_out/index_pod
-            tmp_settings = pod_settings.copy()
-            tmp_settings.update(pod_env_vars)
-            mdtf_copy_html(src,dst,tmp_settings)
+            # Write section of cmec_run.bash for PODs
+            module_dict,script_lines = set_up_pod(module,
+                                                  module_dict,
+                                                  cmec_config,
+                                                  script_lines,
+                                                  modpath_full,
+                                                  obspath_full)
 
         driver = module_dict[module]["driver_script"]
         if driver.suffix == ".py":
@@ -578,6 +498,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
             alt_name = module_dict[module]["alt_name"]
             mdtf_copy_obs(obspath_full/alt_name,path_out/"obs")
             mdtf_copy_banner(module_dict[module]["mdtf_path"],path_out)
+            pod_settings = cmec_config.get_module_settings(module)
             clear_ps = not(pod_settings.get("save_ps",False))
             clear_nc = not(pod_settings.get("save_nc",False))
             mdtf_file_cleanup(path_out,clear_ps,clear_nc)

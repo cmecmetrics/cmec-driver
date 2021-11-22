@@ -1,4 +1,5 @@
 """
+CMEC driver classes and functions.
 """
 from pathlib import Path
 import glob
@@ -10,7 +11,7 @@ import os
 
 from cmec_driver.cmec_global_vars import *
 
-def user_prompt(question, default = "yes"):
+def user_prompt(question, default = "no"):
     """Asks the user a yes/no question
 
     Args:
@@ -157,7 +158,7 @@ class CMECLibrary():
 
     def get_module_list(self):
         """Get a list of the modules in the library."""
-        return [*self.map_module_path_list]
+        return [x for x in sorted(self.map_module_path_list)]
 
     def get_conda_root(self):
         """Return path to conda install"""
