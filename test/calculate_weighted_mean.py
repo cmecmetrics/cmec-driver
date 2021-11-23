@@ -17,10 +17,11 @@ def weighted_mean(input_data_path, var):
     weighted_mean = weighted_data.mean(("time","lon","lat"))
     return float(weighted_mean[var].data)
 
-parser = argparse.ArgumentParser(description="Inputs for weighted mean")
+parser = argparse.ArgumentParser(description="inputs for weighted mean")
 parser.add_argument("input", help="netCDF data path")
 parser.add_argument("var", help="variable name to average")
 parser.add_argument("output", help="output file name")
+parser.add_argument("-html", help="html file name", default="")
 args = parser.parse_args()
 
 weighted_average = weighted_mean(args.input, args.var)
@@ -34,3 +35,7 @@ output_json["RESULTS"]["Global"][args.var]["weighted_mean"] = weighted_average
 
 with open(args.output, "w") as outfile:
     json.dump(output_json, outfile)
+
+if args.html:
+    with open(args.html, "w") as index_html:
+        index_html.writelines(["<html>\n<head><title>Test page</title></head>\n<h1>Result</h1>\n</html>"])
