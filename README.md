@@ -64,5 +64,5 @@ More detailed installation and set up instructions (including module-specific in
 **Find an issue?**  
 If you find a bug or run into a problem, please open a new Issue.  
 
-**License**  
+## License  
 CMEC driver is distributed under the terms of the BSD 3-Clause License.
