@@ -484,7 +484,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
             print("Module " + module + " failed with return code",p.returncode)
         else:
             print("Module " + module + " completed.")
-        print("See cmec-driver log: ",log_path.relative_to(Path.cwd()))
+        print("See cmec-driver log: ",log_path)
 
         # Do final work and clean-up
         if (path_out/"output.json").exists():
