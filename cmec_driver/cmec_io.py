@@ -440,13 +440,13 @@ class CMECModuleTOC():
                 cmec_settings.read_from_file(path_settings)
                 cmec_settings.create_config(config_file, self.get_name(),mod_is_pod=mod_is_pod)
 
-    def remove_config(self, path_module):
+    def remove_config(self, config_file, path_module):
         for item in self.jcontents:
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
                 path_settings = path_module/item
                 cmec_settings.read_from_file(path_settings)
-                cmec_settings.remove_config(self.get_name())
+                cmec_settings.remove_config(config_file, self.get_name())
 
     def get_name(self):
         """Return the name of the module."""
