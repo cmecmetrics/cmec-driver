@@ -173,8 +173,6 @@ def cmec_unregister(module_name, config_file):
 
     print("Removing configuration")
     module_dir = lib.find(module_name)
-    print(module_dir)
-    print(config_file)
     cmec_settings = CMECModuleSettings()
     cmec_toc = CMECModuleTOC()
     tmp_settings_name = cmec_settings.exists_in_module_path(module_dir)
