@@ -152,10 +152,10 @@ def cmec_register(module_dir, config_file):
     lib.write()
 
     # Write default settings to config
-    if cmec_settings:
+    if tmp_settings_name:
         print("Writing default settings to " + str(config_file))
         cmec_settings.create_config(config_file,mod_is_pod=lib.is_pod(str_name))
-    elif cmec_toc:
+    elif cmec_toc.exists_in_module_path(module_dir):
         print("Writing default settings to " + str(config_file))
         cmec_toc.create_config(config_file,module_dir,mod_is_pod=lib.is_pod(str_name))
 
