@@ -288,10 +288,12 @@ class CMECModuleSettings():
         # load existing cmec config or create new config
         config_file = CMECConfig(config_file)
         config_file.read()
-        rewrite = user_prompt("Overwrite cmec.json?")
-        if not rewrite:
-            print("*** Skip writing default parameters. Warning: This may affect module performance. ***")
-            return
+        # Prompt if single configuration
+        if module_name == '':
+            rewrite = user_prompt("Overwrite cmec.json?")
+            if not rewrite:
+                print("*** Skip writing default parameters. Warning: This may affect module performance. ***")
+                return
         config_file.update(module_settings)
         config_file.write()
 
@@ -433,6 +435,10 @@ class CMECModuleTOC():
 
     def create_config(self, config_file, path_module, mod_is_pod=False):
         """Create module settings json for each configuration."""
+        rewrite = user_prompt("Overwrite cmec.json?")
+        if not rewrite:
+            print("*** Skip writing default parameters. Warning: This may affect module performance. ***")
+            return
         for item in self.jcontents:
             if isinstance(item, str):
                 cmec_settings = CMECModuleSettings()
