@@ -141,7 +141,7 @@ def mdtf_copy_html(src,dst,pod_settings):
     for line in lines:
         for item in pod_settings:
             if "{{%s}}" % item in line:
-                line = line.replace("{{%s}}" % item,pod_settings[item])
+                line = line.replace("{{%s}}" % str(item),str(pod_settings[item]))
         html_lines.append(line)
     with open(dst,"w") as f:
         f.writelines(html_lines)
