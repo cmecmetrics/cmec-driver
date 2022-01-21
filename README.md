@@ -9,10 +9,10 @@ The driver only requires packages from the Python 3 standard library. The test m
 ## Installation
 It is recommended that you create a new Python 3 environment to install the driver. After creating and activating this environment, there are three ways to obtain the cmec-driver package:
 
-1. Use conda to install the package:  
+1. Use conda to install the latest release:  
 `conda install -c conda-forge cmec_driver`  
   
-2. Clone this repository. Enter the cmec-driver directory and do:
+2. Clone this repository to use the latest dev version. Enter the cmec-driver directory and do:
 `pip install ./`
   
 3. Download the most recent release of cmec-driver from github. Extract the source code, enter the cmec-driver directory, and do:  
