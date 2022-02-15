@@ -552,6 +552,9 @@ def main():
     # get the rest of the arguments
     args = parser.parse_args()
 
+    # config directory might not exist yet
+    Path(cmec_config_dir).mkdir(exist_ok=True)
+
     # cmec config goes in cmec-driver/config folder
     config_file = Path.home()/cmec_config_dir/"cmec.json"
 
