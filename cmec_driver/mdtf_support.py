@@ -246,6 +246,28 @@ def mdtf_file_cleanup(wk_dir,clear_ps,clear_nc):
         nc_dir = wk_dir/"model"/"netcdf"
         remove_directory(nc_dir)
 
+def mdtf_settings_proc(module_dict,cmec_settings,module_path):
+    module_path = Path(module_path)
+    module_dict["pod_varlist"] = cmec_settings.get_setting("varlist")
+    module_dict["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
+    module_dict["pod_env_vars"] = cmec_settings.get_setting("settings").get("pod_env_vars",{})
+    module_dict["mdtf_path"] = module_path.resolve().parents[1]
+    module_dict["dimensions"] = cmec_settings.get_setting("dimensions")
+    module_dict["alt_name"] = module_path.name
+    data = cmec_settings.get_setting("data")
+    if "frequency" in data:
+        module_dict["frequency"] = data.get("frequency")
+    else:
+        # Frequency is determined by variable
+        module_dict["frequency"] = {}
+        for variable in module_dict["pod_varlist"]:
+            if "frequency" in module_dict["pod_varlist"][variable]:
+                module_dict["frequency"][variable] = module_dict["pod_varlist"][variable]["frequency"]
+            else:
+                # POD variable is assumed to be a static frequency
+                module_dict["frequency"][variable] = "static"
+    return module_dict
+
 def set_up_pod(module,module_dict,cmec_config,script_lines,modpath_full,obspath_full):
     """This function handles writing a section of the cmec_run.bash script which
     is unique to the MDTF PODs.
@@ -269,7 +291,6 @@ def set_up_pod(module,module_dict,cmec_config,script_lines,modpath_full,obspath_
 
     casename = pod_settings["CASENAME"]
     varlist = module_dict[module]["pod_varlist"]
-    frequency = module_dict[module]["frequency"]
     dimensions = module_dict[module]["dimensions"]
     alt_name = module_dict[module]["alt_name"]
     mdtf_path = Path(module_dict[module]["mdtf_path"])
@@ -300,6 +321,10 @@ def set_up_pod(module,module_dict,cmec_config,script_lines,modpath_full,obspath_
     # Each data variable also becomes an env variable
     # Variable name depends on convention
     for varname in varlist:
+        if isinstance(module_dict[module]["frequency"],str):
+            frequency = module_dict[module]["frequency"]
+        else:
+            frequency = module_dict[module]["frequency"][varname]
         stnd_name = varlist[varname]["standard_name"]
         file_varname = varname
         # Translate name for convention
