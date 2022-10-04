@@ -190,7 +190,7 @@ class CMECLibrary():
 
     def is_pod(self, strModule):
         """Return true if module is part of MDTF diagnostics package."""
-        if strModule == "MDTF_Diagnostics":
+        if strModule.split("/")[0] == "MDTF_Diagnostics":
             return True
         filepath = Path(self.find(strModule)).resolve()
         if filepath is not False:
