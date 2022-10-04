@@ -202,6 +202,7 @@ class CMECModuleSettings():
     def __init__(self):
         self.path = ""
         self.jsettings = {}
+        self.path_driver = ""
 
     def exists_in_module_path(self, filepath):
         """Check if a settings file exists for a module.
@@ -227,6 +228,7 @@ class CMECModuleSettings():
     def clear(self):
         self.path = ""
         self.jsettings = {}
+        self.path_driver = ""
 
     def read_from_file(self, path_settings):
         """Read the CMEC module contents file.
@@ -322,9 +324,19 @@ class CMECModuleSettings():
         """Returns module long name."""
         return self.jsettings["settings"]["long_name"]
 
-    def get_driver_script(self):
-        """Returns driver file name."""
-        return self.jsettings["settings"]["driver"]
+    def get_driver_script_path(self,path_module="."):
+        """Locate and validate the path to the configuration driver script."""
+        if self.jsettings == {}:
+            print("No settings found. Run CMECModuleSettings.read_from_file() method first.")
+        else:
+            path_driver = Path(self.jsettings["settings"]["driver"])
+            # Path might be relative to module root or to configuration folder
+            test_path_1 = self.path[0] / path_driver
+            test_path_2 = Path(path_module) / path_driver
+            for test_path in [test_path_1,test_path_2]:
+                if test_path.exists():
+                    self.path_driver = test_path
+        return self.path_driver
 
     def get_setting(self,key):
         """Returns setting from settings dict."""
