@@ -331,7 +331,7 @@ class CMECModuleSettings():
         else:
             path_driver = Path(self.jsettings["settings"]["driver"])
             # Path might be relative to module root or to configuration folder
-            test_path_1 = self.path[0] / path_driver
+            test_path_1 = self.path.parents[0] / path_driver
             test_path_2 = Path(path_module) / path_driver
             for test_path in [test_path_1,test_path_2]:
                 if test_path.exists():
