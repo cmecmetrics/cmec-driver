@@ -246,14 +246,14 @@ def mdtf_file_cleanup(wk_dir,clear_ps,clear_nc):
         nc_dir = wk_dir/"model"/"netcdf"
         remove_directory(nc_dir)
 
-def mdtf_settings_proc(module_dict,cmec_settings,module_path):
+def mdtf_settings_proc(module_dict,cmec_settings,module_path,str_configuration):
     module_path = Path(module_path)
     module_dict["pod_varlist"] = cmec_settings.get_setting("varlist")
     module_dict["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
     module_dict["pod_env_vars"] = cmec_settings.get_setting("settings").get("pod_env_vars",{})
-    module_dict["mdtf_path"] = module_path.resolve().parents[1]
+    module_dict["mdtf_path"] = module_path.resolve()
     module_dict["dimensions"] = cmec_settings.get_setting("dimensions")
-    module_dict["alt_name"] = module_path.name
+    module_dict["alt_name"] = str_configuration
     data = cmec_settings.get_setting("data")
     if "frequency" in data:
         module_dict["frequency"] = data.get("frequency")
