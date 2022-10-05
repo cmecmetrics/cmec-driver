@@ -350,9 +350,11 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
             module_dict[module]["pod_varlist"] = cmec_settings.get_setting("varlist")
             module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
             module_dict[module]["pod_env_vars"] = cmec_settings.get_setting("settings").get("pod_env_vars",{})
-            module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
+            #module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
+            module_dict[module]["mdtf_path"] = Path(module_path).resolve()
             module_dict[module]["dimensions"] = cmec_settings.get_setting("dimensions")
-            module_dict[module]["alt_name"] = module_path.name
+            #module_dict[module]["alt_name"] = module_path.name
+            module_dict[module]["alt_name"] = str_configuration
             data = cmec_settings.get_setting("data")
             if data:
                 module_dict[module]["frequency"] = data["frequency"]
