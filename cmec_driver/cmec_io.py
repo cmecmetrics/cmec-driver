@@ -193,7 +193,7 @@ class CMECLibrary():
         if strModule.split("/")[0] == "MDTF_Diagnostics":
             return True
         filepath = Path(self.find(strModule)).resolve()
-        if filepath is not False:
+        if filepath:
             if "diagnostics" in filepath.parents[0].name:
                 if "MDTF-diagnostics" in filepath.parents[1].name:
                     return True

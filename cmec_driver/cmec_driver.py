@@ -270,8 +270,6 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
     module_dict = {}
 
     for module in module_list:
-        driver_found = False
-
         module_dict.update({module: {}})
 
         # Get name of base module
@@ -342,30 +340,12 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
                 + " does not contain " + cmec_settings_name
                 + " or " + cmec_toc_name)
 
-        if module_dict[module]["driver_script"]:
-            driver_found = True
+        if "driver_script" not in module_dict[module]:
+            raise CMECError("No driver file provided for ",module)
 
         # Save more settings if POD
         if module_dict[module]["mod_is_pod"]:
-            module_dict[module]["pod_varlist"] = cmec_settings.get_setting("varlist")
-            module_dict[module]["runtime"] = cmec_settings.get_setting("settings")["runtime_requirements"]
-            module_dict[module]["pod_env_vars"] = cmec_settings.get_setting("settings").get("pod_env_vars",{})
-            #module_dict[module]["mdtf_path"] = Path(module_path).resolve().parents[1]
-            module_dict[module]["mdtf_path"] = Path(module_path).resolve()
-            module_dict[module]["dimensions"] = cmec_settings.get_setting("dimensions")
-            #module_dict[module]["alt_name"] = module_path.name
-            module_dict[module]["alt_name"] = str_configuration
-            data = cmec_settings.get_setting("data")
-            if data:
-                module_dict[module]["frequency"] = data["frequency"]
-            else:
-                # See if frequency is provided for a variable
-                var1 = next(iter(module_dict[module]["pod_varlist"]))
-                module_dict[module]["frequency"] = module_dict[module]["pod_varlist"][var1]["frequency"]
-
-        # Check for zero drivers
-        if not driver_found:
-            raise CMECError("No driver file found for ",module)
+            module_dict[module] = mdtf_settings_proc(module_dict[module],cmec_settings,module_path,str_configuration)
 
     # Output driver file list
     print(
@@ -494,16 +474,19 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
                 results = json.load(output_json)
             index = results.get("index","index.html")
         elif mod_is_pod:
+            # Convert and copy files for MDTF html pages
             index = module_dict[module].get("index","index.html")
             dst = path_out/"model"
             mdtf_ps_to_png(dst/"PS",dst,lib.get_conda_root(),lib.get_env_root())
             alt_name = module_dict[module]["alt_name"]
             mdtf_copy_obs(obspath_full/alt_name,path_out/"obs")
             mdtf_copy_banner(module_dict[module]["mdtf_path"],path_out)
+            # Delete files
             pod_settings = cmec_config.get_module_settings(module)
             clear_ps = not(pod_settings.get("save_ps",False))
             clear_nc = not(pod_settings.get("save_nc",False))
             mdtf_file_cleanup(path_out,clear_ps,clear_nc)
+            # Rename graphics to match variables in correct convention
             CONV = module_dict[module]["convention"]
             varlist = module_dict[module]["pod_varlist"]
             mdtf_rename_img(varlist,CONV,path_out/"model")
