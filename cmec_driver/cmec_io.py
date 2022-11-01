@@ -190,6 +190,8 @@ class CMECLibrary():
 
     def is_pod(self, strModule):
         """Return true if module is part of MDTF diagnostics package."""
+        if strModule.split("/")[0] == "MDTF_Diagnostics":
+            return True
         filepath = Path(self.find(strModule)).resolve()
         if filepath:
             if "diagnostics" in filepath.parents[0].name:
@@ -202,6 +204,7 @@ class CMECModuleSettings():
     def __init__(self):
         self.path = ""
         self.jsettings = {}
+        self.path_driver = ""
 
     def exists_in_module_path(self, filepath):
         """Check if a settings file exists for a module.
@@ -227,6 +230,7 @@ class CMECModuleSettings():
     def clear(self):
         self.path = ""
         self.jsettings = {}
+        self.path_driver = ""
 
     def read_from_file(self, path_settings):
         """Read the CMEC module contents file.
@@ -240,11 +244,13 @@ class CMECModuleSettings():
             path_settings = Path(path_settings)
 
         self.path = path_settings
+        print("Path: ",str(self.path))
 
         with open(self.path, "r") as cmec_json:
-            # Settings could be a JSONC
+            # Settings could be a JSONC; strip out comments
             self.jsettings = json.loads(
-                "\n".join(row for row in cmec_json if not row.lstrip().startswith("//")))
+                "\n".join(row.split(" //")[0] for row in cmec_json if not row.lstrip().startswith("//")), 
+                strict=False)
 
         if "settings" not in self.jsettings:
             raise CMECError(
@@ -322,9 +328,19 @@ class CMECModuleSettings():
         """Returns module long name."""
         return self.jsettings["settings"]["long_name"]
 
-    def get_driver_script(self):
-        """Returns driver file name."""
-        return self.jsettings["settings"]["driver"]
+    def get_driver_script_path(self,path_module="."):
+        """Locate and validate the path to the configuration driver script."""
+        if self.jsettings == {}:
+            print("No settings found. Run CMECModuleSettings.read_from_file() method first.")
+        else:
+            path_driver = Path(self.jsettings["settings"]["driver"])
+            # Path might be relative to module root or to configuration folder
+            test_path_1 = self.path.parents[0] / path_driver
+            test_path_2 = Path(path_module) / path_driver
+            for test_path in [test_path_1,test_path_2]:
+                if test_path.exists():
+                    self.path_driver = test_path
+        return self.path_driver
 
     def get_setting(self,key):
         """Returns setting from settings dict."""

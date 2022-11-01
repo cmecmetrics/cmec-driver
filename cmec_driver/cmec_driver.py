@@ -309,7 +309,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
 
             cmec_settings.read_from_file(tmp_settings_name)
             module_dict[module].update({"module_path": module_path})
-            module_dict[module].update({"driver_script": module_path/cmec_settings.get_driver_script()})
+            module_dict[module].update({"driver_script": cmec_settings.get_driver_script_path()})
             module_dict[module].update({"working_dir": Path(cmec_settings.get_name())})
             module_dict[module].update({"working_dir_full": workpath/Path(cmec_settings.get_name())})
 
@@ -325,7 +325,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
                     cmec_settings.read_from_file(setting_path)
                     config_found = True
                     module_dict[module].update({"module_path": setting_path.parents[0]})
-                    module_dict[module].update({"driver_script": module_path/cmec_settings.get_driver_script()})
+                    module_dict[module].update({"driver_script": cmec_settings.get_driver_script_path(path_module=module_path)})
                     module_dict[module].update({"working_dir": Path(cmec_toc.get_name())/Path(cmec_settings.get_name())})
                     module_dict[module].update({"working_dir_full": workpath/Path(cmec_toc.get_name())/Path(cmec_settings.get_name())})
 
@@ -345,7 +345,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
 
         # Save more settings if POD
         if module_dict[module]["mod_is_pod"]:
-            module_dict[module] = mdtf_settings_proc(module_dict[module],cmec_settings,module_path)
+            module_dict[module] = mdtf_settings_proc(module_dict[module],cmec_settings,module_path,str_configuration)
 
     # Output driver file list
     print(

@@ -3,7 +3,8 @@ cmec_global_vars.py
 These are global variables used throughout CMEC driver.
 "version" should be incremented with each new release.
 """
-version = "1.1.6"
+
+version = "1.1.7"
 cmec_library_name = ".cmeclibrary"
 cmec_config_dir = ".cmec"
 cmec_toc_name = "contents.json"
