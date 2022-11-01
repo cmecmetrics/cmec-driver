@@ -244,11 +244,13 @@ class CMECModuleSettings():
             path_settings = Path(path_settings)
 
         self.path = path_settings
+        print("Path: ",str(self.path))
 
         with open(self.path, "r") as cmec_json:
             # Settings could be a JSONC; strip out comments
             self.jsettings = json.loads(
-                "\n".join(row.split("//")[0] for row in cmec_json if not row.lstrip().startswith("//")))
+                "\n".join(row.split(" //")[0] for row in cmec_json if not row.lstrip().startswith("//")), 
+                strict=False)
 
         if "settings" not in self.jsettings:
             raise CMECError(
