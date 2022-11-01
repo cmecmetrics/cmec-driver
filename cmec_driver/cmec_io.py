@@ -244,7 +244,6 @@ class CMECModuleSettings():
             path_settings = Path(path_settings)
 
         self.path = path_settings
-        print("Path: ",str(self.path))
 
         with open(self.path, "r") as cmec_json:
             # Settings could be a JSONC; strip out comments
