@@ -388,7 +388,7 @@ def cmec_run(strModelDir, strWorkingDir, module_list, config_file, strObsDir="")
         # Create new output directories directories
         path_out.mkdir(parents=True)
         if module_dict[module]["mod_is_pod"]:
-            for folder in [path_out/"model"/"netcdf", path_out/"model"/"PS", path_out/"obs"/"netcdf", path_out/"obs"/"PS"]:
+            for folder in [path_out/"model"/"netCDF", path_out/"model"/"PS", path_out/"obs"/"netCDF", path_out/"obs"/"PS"]:
                 path_out_tmp = folder
                 path_out_tmp.mkdir(parents=True)
 
