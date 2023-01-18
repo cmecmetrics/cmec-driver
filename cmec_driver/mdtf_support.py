@@ -239,12 +239,14 @@ def mdtf_file_cleanup(wk_dir,clear_ps,clear_nc):
     """Delete PS and netCDF if requested."""
     if clear_ps:
         print("Deleting postscript images.")
-        ps_dir = wk_dir/"model"/"PS"
-        remove_directory(ps_dir)
+        for dir_name in ["model","obs"]:
+            ps_dir = wk_dir/dir_name/"PS"
+            remove_directory(ps_dir)
     if clear_nc:
         print("Deleting intermediate netCDF files.")
-        nc_dir = wk_dir/"model"/"netcdf"
-        remove_directory(nc_dir)
+        for dir_name in ["model","obs"]:
+            nc_dir = wk_dir/dir_name/"netCDF"
+            remove_directory(nc_dir)
 
 def mdtf_settings_proc(module_dict,cmec_settings,module_path,str_configuration):
     module_path = Path(module_path)
