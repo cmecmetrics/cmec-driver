@@ -59,7 +59,7 @@ Example:
 Some modules allow settings to be modified. These settings can be changed in ~/.cmec/cmec.json after the module is registered.
 
 **Further instructions**  
-More detailed installation and set up instructions (including module-specific instructions) can be found in the [wiki](https://github.com/cmecmetrics/cmec-driver/wiki/Installation-and-Setup).
+More detailed installation and set up instructions (including module-specific instructions) can be found in the [wiki](https://github.com/cmecmetrics/cmec-driver/wiki). 
 
 **Find an issue?**  
 If you find a bug or run into a problem, please open a new Issue.  
