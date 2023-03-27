@@ -77,3 +77,18 @@ Content in this repository is developed by climate and computer scientists from 
 [BER]: https://science.osti.gov/ber
 [DOE]: https://www.energy.gov/
 [OS]: https://science.osti.gov/
+
+
+<p>
+    <img src="https://github.com/PCMDI/assets/blob/main/DOE/480px-DOE_Seal_Color.png?raw=true"
+         width="65"
+         style="margin-right: 30px"
+         title="United States Department of Energy"
+         alt="United States Department of Energy"
+    >&nbsp;
+    <img src="https://github.com/PCMDI/assets/blob/main/LLNL/212px-LLNLiconPMS286-WHITEBACKGROUND.png?raw=true"
+         width="65"
+         title="Lawrence Livermore National Laboratory"
+         alt="Lawrence Livermore National Laboratory"
+    >
+</p>
