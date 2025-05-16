@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15446402.svg)](https://doi.org/10.5281/zenodo.15446402)
+
 # cmec-driver
 Coordinated Model Evaluation Capabilities (CMEC) driver
 
